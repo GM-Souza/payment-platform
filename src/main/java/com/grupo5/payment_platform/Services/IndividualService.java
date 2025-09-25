@@ -38,6 +38,7 @@ public class IndividualService {
         ind.setFullname(dto.fullname());
         ind.setCpf(dto.cpf());
         ind.setEmail(dto.email());
+        ind.setBalance(dto.balance());
         individualRepository.save(ind);
         return IndividualResponseDTO.fromIndividual(ind);
     }
