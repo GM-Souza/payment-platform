@@ -38,6 +38,7 @@ public class LegalEntityService {
         entity.setLegalName(dto.legalName());
         entity.setCnpj(dto.cnpj());
         entity.setEmail(dto.email());
+        entity.setBalance(dto.balance());
         legalEntityRepository.save(entity);
         return LegalEntityResponseDTO.fromLegalEntity(entity);
     }
