@@ -2,6 +2,7 @@ package com.grupo5.payment_platform.Services;
 
 import com.grupo5.payment_platform.DTOs.IndividualRequestDTO;
 import com.grupo5.payment_platform.DTOs.IndividualResponseDTO;
+import com.grupo5.payment_platform.Exceptions.IndividualNotFoundException;
 import com.grupo5.payment_platform.Models.IndividualModel;
 import com.grupo5.payment_platform.Repositories.IndividualRepository;
 import org.springframework.stereotype.Service;
@@ -28,7 +29,8 @@ public class IndividualService {
 
     //Metodo para listar entidade por id
     public IndividualResponseDTO findById(UUID id){
-       IndividualModel individual = individualRepository.findById(id).orElseThrow(() -> new RuntimeException("User Not Found"));
+       IndividualModel individual = individualRepository.findById(id).orElseThrow(() ->
+               new IndividualNotFoundException("User Not Found"));
         return  IndividualResponseDTO.fromIndividual(individual);
     }
 
@@ -46,7 +48,8 @@ public class IndividualService {
 
     //Metodo para alterar a entidade por id
     public IndividualResponseDTO alter(UUID id, IndividualRequestDTO dto){
-        IndividualModel updateIndividual = individualRepository.findById(id).orElseThrow(()-> new RuntimeException("User Not Found"));
+        IndividualModel updateIndividual = individualRepository.findById(id).orElseThrow(()->
+                new IndividualNotFoundException("User Not Found"));
         updateIndividual.setFullname(dto.fullname());
         updateIndividual.setCpf(dto.cpf());
         updateIndividual.setEmail(dto.email());

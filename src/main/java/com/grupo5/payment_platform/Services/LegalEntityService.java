@@ -2,8 +2,10 @@ package com.grupo5.payment_platform.Services;
 
 import com.grupo5.payment_platform.DTOs.LegalEntityRequestDTO;
 import com.grupo5.payment_platform.DTOs.LegalEntityResponseDTO;
+import com.grupo5.payment_platform.Exceptions.LegalEntityNotFoundException;
 import com.grupo5.payment_platform.Models.LegalEntityModel;
 import com.grupo5.payment_platform.Repositories.LegalEntityRepository;
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -28,7 +30,8 @@ public class LegalEntityService {
 
     //Metodo para listar entidade por id
     public LegalEntityResponseDTO findById(UUID id){
-        LegalEntityModel entity = legalEntityRepository.findById(id).orElseThrow(() -> new RuntimeException("Entity Not Found"));
+        LegalEntityModel entity = legalEntityRepository.findById(id).orElseThrow(() ->
+                new EntityNotFoundException("Entity Not Found"));
         return  LegalEntityResponseDTO.fromLegalEntity(entity);
     }
 
@@ -45,7 +48,8 @@ public class LegalEntityService {
 
     //Metodo para alterar a entidade por id
     public LegalEntityResponseDTO alter(UUID id, LegalEntityRequestDTO dto){
-        LegalEntityModel updateEntity = legalEntityRepository.findById(id).orElseThrow(()-> new RuntimeException("Entity Not Found"));
+        LegalEntityModel updateEntity = legalEntityRepository.findById(id).orElseThrow(()->
+                new LegalEntityNotFoundException("Entity Not Found"));
         updateEntity.setLegalName(dto.legalName());
         updateEntity.setCnpj(dto.cnpj());
         updateEntity.setEmail(dto.email());
