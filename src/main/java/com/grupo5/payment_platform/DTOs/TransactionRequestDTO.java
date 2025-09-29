@@ -6,4 +6,7 @@ import java.util.UUID;
 
 public record TransactionRequestDTO(UUID senderId, BigDecimal amount, UUID receiverId, LocalDateTime date) {
 
+    public TransactionRequestDTO(UUID senderId, BigDecimal amount, UUID receiverId) {
+        this(senderId, amount, receiverId, LocalDateTime.now());
+    }
 }

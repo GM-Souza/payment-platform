@@ -1,5 +1,7 @@
 package com.grupo5.payment_platform.Models;
 
+import com.grupo5.payment_platform.Enums.TransactionStatus;
+import com.grupo5.payment_platform.Models.payments.PaymentDetail;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -35,6 +37,16 @@ public class TransactionModel {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "receiver_id")
     private UserModel receiver;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false)
+    private TransactionStatus status;
+
+    @Column(name = "mp_payment_id")
+    private Long mercadoPagoPaymentId;
+
+    @OneToOne(mappedBy = "transaction", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private PaymentDetail paymentDetail;
 
 
 }

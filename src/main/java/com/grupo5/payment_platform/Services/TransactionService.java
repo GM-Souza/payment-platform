@@ -1,9 +1,17 @@
 package com.grupo5.payment_platform.Services;
 
 import com.grupo5.payment_platform.DTOs.TransactionRequestDTO;
+import com.grupo5.payment_platform.Enums.TransactionStatus;
 import com.grupo5.payment_platform.Models.TransactionModel;
 import com.grupo5.payment_platform.Models.UserModel;
+import com.grupo5.payment_platform.Models.payments.PixPaymentDetail;
 import com.grupo5.payment_platform.Repositories.TransactionRepository;
+import com.mercadopago.client.payment.PaymentClient;
+import com.mercadopago.client.payment.PaymentCreateRequest;
+import com.mercadopago.client.payment.PaymentPayerRequest;
+import com.mercadopago.exceptions.MPApiException;
+import com.mercadopago.exceptions.MPException;
+import com.mercadopago.resources.payment.Payment;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,7 +28,7 @@ public class TransactionService {
         this.transactionRepository = transactionRepository;
         this.userService = userService;
     }
-
+    //Metodo de transferencia interna p2p
     @Transactional
     public TransactionModel createTransaction(TransactionRequestDTO dto) throws Exception {
         UserModel sender = this.userService.findById(dto.senderId());
@@ -37,5 +45,61 @@ public class TransactionService {
         transactionRepository.save(newTransaction);
 
         return newTransaction;
+    }
+
+    public TransactionModel createPixTransaction(TransactionRequestDTO dto) throws Exception {
+        UserModel sender = this.userService.findById(dto.senderId());
+        UserModel receiver = this.userService.findById(dto.receiverId());
+
+        TransactionModel pixTransaction = new TransactionModel();
+        pixTransaction.setSender(sender);
+        pixTransaction.setReceiver(receiver);
+        pixTransaction.setAmount(dto.amount());
+        pixTransaction.setDate(LocalDateTime.now());
+        pixTransaction.setStatus(TransactionStatus.PENDING);
+
+        sender.setBalance(sender.getBalance().subtract(dto.amount()));
+        receiver.setBalance(receiver.getBalance().add(dto.amount()));
+
+        PixPaymentDetail pixPaymentDetail = new PixPaymentDetail();
+        pixPaymentDetail.setTransaction(pixTransaction);
+        pixTransaction.setPaymentDetail(pixPaymentDetail);
+
+        try{
+            PaymentCreateRequest createRequest =
+                    PaymentCreateRequest.builder()
+                            .transactionAmount(pixTransaction.getAmount())
+                            .description("Payment from " + sender.getEmail() + " to " + receiver.getEmail())
+                            .paymentMethodId("pix")
+                            .payer(PaymentPayerRequest.builder()
+                            .email(sender.getEmail())
+                                    .build())
+                            .build();
+
+            PaymentClient client = new PaymentClient();
+            Payment paymentResponse = client.create(createRequest);
+
+            pixTransaction.setMercadoPagoPaymentId(paymentResponse.getId());
+            PixPaymentDetail savedPixDetails = (PixPaymentDetail) pixTransaction.getPaymentDetail();
+
+            //Metodos para obter o qrcode e o codigo do qrcode referente a transação
+            String base64Image = paymentResponse.getPointOfInteraction().getTransactionData().getQrCodeBase64();
+            savedPixDetails.setQrCodeBase64(base64Image);
+
+            String copyPasteCode = paymentResponse.getPointOfInteraction().getTransactionData().getQrCode();
+            savedPixDetails.setQrCodeCopyPaste(copyPasteCode);
+            pixTransaction.setStatus(TransactionStatus.APPROVED);
+
+            return transactionRepository.save(pixTransaction);
+        }catch (MPApiException e){
+            pixTransaction.setStatus(TransactionStatus.REJECTED);
+            transactionRepository.save(pixTransaction);
+            throw new RuntimeException("Error creating Pix transaction",e);
+        }catch (MPException e){
+            pixTransaction.setStatus(TransactionStatus.REJECTED);
+            transactionRepository.save(pixTransaction);
+            throw new RuntimeException("Error on MercadoPago SDK",e);
+        }
+
     }
 }
