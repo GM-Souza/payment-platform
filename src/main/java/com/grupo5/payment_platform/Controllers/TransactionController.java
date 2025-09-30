@@ -3,7 +3,6 @@ package com.grupo5.payment_platform.Controllers;
 
 import com.grupo5.payment_platform.DTOs.PixResponseDTO;
 import com.grupo5.payment_platform.DTOs.TransactionRequestDTO;
-import com.grupo5.payment_platform.DTOs.TransactionResponseDTO;
 import com.grupo5.payment_platform.Models.TransactionModel;
 import com.grupo5.payment_platform.Models.payments.PixPaymentDetail;
 import com.grupo5.payment_platform.Services.TransactionService;
@@ -26,7 +25,7 @@ public class TransactionController {
 
     //Endpoint para metodo de transferencia interna p2p
     @PostMapping
-    public ResponseEntity<TransactionModel> createTransaction(@RequestBody TransactionRequestDTO dto) throws Exception {
+    public ResponseEntity<TransactionModel> createTransaction(@RequestBody TransactionRequestDTO dto){
         TransactionModel newTransaction = this.transactionService.createTransaction(dto);
         return new ResponseEntity<>(newTransaction, HttpStatus.OK);
     }

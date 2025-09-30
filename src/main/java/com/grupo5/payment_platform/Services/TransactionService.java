@@ -2,6 +2,8 @@ package com.grupo5.payment_platform.Services;
 
 import com.grupo5.payment_platform.DTOs.TransactionRequestDTO;
 import com.grupo5.payment_platform.Enums.TransactionStatus;
+import com.grupo5.payment_platform.Exceptions.InvalidTransactionAmountException;
+import com.grupo5.payment_platform.Exceptions.InsufficientBalanceException;
 import com.grupo5.payment_platform.Models.TransactionModel;
 import com.grupo5.payment_platform.Models.UserModel;
 import com.grupo5.payment_platform.Models.payments.PixPaymentDetail;
@@ -15,6 +17,8 @@ import com.mercadopago.resources.payment.Payment;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Service
@@ -30,10 +34,23 @@ public class TransactionService {
     }
     //Metodo de transferencia interna p2p
     @Transactional
-    public TransactionModel createTransaction(TransactionRequestDTO dto) throws Exception {
+    public TransactionModel createTransaction(TransactionRequestDTO dto){
+
         UserModel sender = this.userService.findById(dto.senderId());
         UserModel receiver = this.userService.findById(dto.receiverId());
 
+        // validações
+        if (dto.amount() == null || dto.amount().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new InvalidTransactionAmountException("The transaction amount must be greater than zero.");
+        }
+
+        if (sender.getBalance().compareTo(dto.amount()) < 0) {
+            throw new InsufficientBalanceException("Sender does not have enough balance.");
+        }
+
+        if (sender.getId().equals(receiver.getId())) {
+            throw new InvalidTransactionAmountException("Sender and receiver cannot be the same user.");
+        }
         sender.setBalance(sender.getBalance().subtract(dto.amount()));
         receiver.setBalance(receiver.getBalance().add(dto.amount()));
 
@@ -50,6 +67,19 @@ public class TransactionService {
     public TransactionModel createPixTransaction(TransactionRequestDTO dto) throws Exception {
         UserModel sender = this.userService.findById(dto.senderId());
         UserModel receiver = this.userService.findById(dto.receiverId());
+
+        // validações
+        if (dto.amount() == null || dto.amount().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new InvalidTransactionAmountException("The transaction amount must be greater than zero.");
+        }
+
+        if (sender.getBalance().compareTo(dto.amount()) < 0) {
+            throw new InsufficientBalanceException("Sender does not have enough balance.");
+        }
+
+        if (sender.getId().equals(receiver.getId())) {
+            throw new InvalidTransactionAmountException("Sender and receiver cannot be the same user.");
+        }
 
         TransactionModel pixTransaction = new TransactionModel();
         pixTransaction.setSender(sender);
@@ -89,8 +119,8 @@ public class TransactionService {
             String copyPasteCode = paymentResponse.getPointOfInteraction().getTransactionData().getQrCode();
             savedPixDetails.setQrCodeCopyPaste(copyPasteCode);
             pixTransaction.setStatus(TransactionStatus.APPROVED);
-
             return transactionRepository.save(pixTransaction);
+
         }catch (MPApiException e){
             pixTransaction.setStatus(TransactionStatus.REJECTED);
             transactionRepository.save(pixTransaction);
