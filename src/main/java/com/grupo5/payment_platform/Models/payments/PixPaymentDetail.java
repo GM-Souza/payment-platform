@@ -13,11 +13,10 @@ import lombok.Setter;
 @Setter
 public class PixPaymentDetail extends PaymentDetail {
 
-    //Lob é usado para textos grandes
-    @Lob
-    @Column(name = "qr_code_base64")
+
+    @Column(name = "qr_code_base64", columnDefinition = "TEXT")
     private String qrCodeBase64;
 
-    @Column(name = "qr_code_copy_paste")
+    @Column(name = "qr_code_copy_paste", columnDefinition = "TEXT")
     private String qrCodeCopyPaste;
 }

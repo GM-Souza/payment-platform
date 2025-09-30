@@ -38,10 +38,11 @@ public class GlobalHandlerException {
     @ExceptionHandler(DataIntegrityViolationException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ErrorResponseDTO handleDataIntegrity(DataIntegrityViolationException ex) {
+
         String detailMessage = "Data is invalid or already exists.";
 
-        //Se o cpf ou CNPJ estiver duplicado, o Banco de dados devolverá uma mensagem que contem a palvra CPF ou CNPJ
-        //criamos um método para ler esta mensagem do BD e alterar nosso erro se perceber que o erro se trata de CPF ou CNPJ
+        //Se o cpf ou CNPJ estiver duplicado, o Banco de dados devolverá uma mensagem que contem a palavra CPF ou CNPJ
+        //criamos um metodo para ler esta mensagem do BD e alterar nosso erro se perceber que o erro se trata de CPF ou CNPJ
         String causeMessage = ex.getMostSpecificCause().getMessage().toLowerCase();
         if (causeMessage.contains("cpf")) {
             detailMessage = "The provided CPF already exists.";
@@ -56,4 +57,33 @@ public class GlobalHandlerException {
         );
     }
 
+    @ExceptionHandler(InsufficientBalanceException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorResponseDTO handleInsufficientBalance(InsufficientBalanceException ex) {
+        return new ErrorResponseDTO(
+                ex.getMessage(),
+                "The sender's account does not have sufficient funds to complete the transaction.",
+                LocalDateTime.now()
+        );
+    }
+
+    @ExceptionHandler(InvalidTransactionAmountException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorResponseDTO handleInvalidAmount(InvalidTransactionAmountException ex) {
+        return new ErrorResponseDTO(
+                ex.getMessage(),
+                "The provided transaction amount is invalid. Please check and try again.",
+                LocalDateTime.now()
+        );
+    }
+
+    @ExceptionHandler(UserNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ErrorResponseDTO handleUserNotFound(UserNotFoundException ex) {
+        return new ErrorResponseDTO(
+                ex.getMessage(),
+                "The provided user ID was not found. Please verify and try again.",
+                LocalDateTime.now()
+        );
+    }
 }

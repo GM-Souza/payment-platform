@@ -1,6 +1,6 @@
 package com.grupo5.payment_platform.Services;
 
-import com.grupo5.payment_platform.DTOs.UserResponseDTO;
+import com.grupo5.payment_platform.Exceptions.UserNotFoundException;
 import com.grupo5.payment_platform.Models.UserModel;
 import com.grupo5.payment_platform.Repositories.UserRepository;
 import org.springframework.stereotype.Service;
@@ -16,7 +16,7 @@ public class UserService {
         this.userRepository = userRepository;
     }
 
-    public UserModel findById (UUID id) throws Exception {
-        return userRepository.findById(id).orElseThrow(() -> new Exception("Usuário não encontrado"));
+    public UserModel findById (UUID id) {
+        return userRepository.findById(id).orElseThrow(() -> new UserNotFoundException("Usuário não encontrado"));
     }
 }
