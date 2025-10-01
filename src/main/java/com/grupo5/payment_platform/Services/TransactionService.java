@@ -112,7 +112,7 @@ public class TransactionService {
         UserModel sender = userService.findById(senderId);
 
         // Busca cobrança pelo código copy-paste
-        PixPaymentDetail pixDetail = PixPaymentDetailRepository.findByQrCodeCopyPaste(qrCodeCopyPaste);
+        PixPaymentDetail pixDetail = pixPaymentDetailRepository.findByQrCodeCopyPaste(qrCodeCopyPaste);
         if (pixDetail == null) {
             throw new RuntimeException("Cobrança Pix não encontrada.");
         }
