@@ -18,6 +18,7 @@ import java.util.UUID;
 @NoArgsConstructor
 @Entity
 @Table(name = "tb_transactions")
+@Inheritance(strategy = InheritanceType.JOINED)
 public class TransactionModel {
 
     @Id
@@ -47,6 +48,7 @@ public class TransactionModel {
 
     @OneToOne(mappedBy = "transaction", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private PaymentDetail paymentDetail;
+
 
 
 }
