@@ -128,6 +128,7 @@ public class TransactionService {
     @Transactional
     public TransactionModel pagarViaPixCopyPaste(PixSenderRequestDTO dto){
         PixPaymentDetail pixDetail = pixPaymentDetailRepository.findByQrCodeCopyPaste(dto.qrCodeCopyPaste());
+        Long mercadoPagoPaymentId = pixDetail.getMercadoPagoPaymentId();
         if (pixDetail == null) {
             throw new PixQrCodeNotFoundException("Cobrança Pix não encontrada.");
         }
@@ -155,7 +156,8 @@ public class TransactionService {
         receiver.setBalance(receiver.getBalance().add(amount));
 
         transaction.setSender(sender);
-        transaction.setStatus(TransactionStatus.APPROVED); // aprovado quando pago
+        transaction.setStatus(TransactionStatus.APPROVED);// aprovado quando pago
+        transaction.setMercadoPagoPaymentId(mercadoPagoPaymentId);
         transactionRepository.save(transaction);
 
         return transaction;
