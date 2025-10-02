@@ -1,5 +1,7 @@
 package com.grupo5.payment_platform.Services;
 
+import com.grupo5.payment_platform.DTOs.PixReceiverRequestDTO;
+import com.grupo5.payment_platform.DTOs.PixRequestDTO;
 import com.grupo5.payment_platform.DTOs.TransactionRequestDTO;
 import com.grupo5.payment_platform.Enums.TransactionStatus;
 import com.grupo5.payment_platform.Exceptions.InsufficientBalanceException;
@@ -17,6 +19,7 @@ import com.mercadopago.client.payment.PaymentPayerRequest;
 import com.mercadopago.resources.payment.Payment;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.RequestBody;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -76,8 +79,7 @@ public class TransactionService {
 
 
     //Metodo cobrança pix
-    public PixPaymentDetail gerarCobrancaPix(TransactionRequestDTO detail) throws Exception {
-        UserModel sender = userService.findById(detail.senderId());
+    public PixPaymentDetail gerarCobrancaPix(PixReceiverRequestDTO detail) throws Exception {
         UserModel receiver = userService.findById(detail.receiverId());
         BigDecimal amount = detail.amount();
 
@@ -122,14 +124,17 @@ public class TransactionService {
 
     //Metodo para pagar a cobrança pix
     @Transactional
-    public TransactionModel pagarViaPixCopyPaste(UUID uuid, String qrCodeCopyPaste) throws Exception {
+    public TransactionModel pagarViaPixCopyPaste(PixRequestDTO dto) throws Exception {
 
-        PixPaymentDetail pixDetail = pixPaymentDetailRepository.findByQrCodeCopyPaste(qrCodeCopyPaste);
+        PixPaymentDetail pixDetail = pixPaymentDetailRepository.findByQrCodeCopyPaste(dto.qrCodeCopyPaste());
         if (pixDetail == null) {
             throw new PixQrCodeNotFoundException("Cobrança Pix não encontrada.");
         }
-        UserModel sender = pixDetail.getTransaction().getSender();
 
+        UserModel sender = userService.findById(dto.senderId());
+        if (sender == null) {
+            throw new UserNotFoundException("Pagador não encontrado.");
+        }
 
         UserModel receiver = pixDetail.getTransaction().getReceiver();
         BigDecimal amount = pixDetail.getAmount();
@@ -138,6 +143,7 @@ public class TransactionService {
             throw new InsufficientBalanceException("Saldo insuficiente.");
         }
 
+        // Realiza o pagamento
         sender.setBalance(sender.getBalance().subtract(amount));
         receiver.setBalance(receiver.getBalance().add(amount));
 
