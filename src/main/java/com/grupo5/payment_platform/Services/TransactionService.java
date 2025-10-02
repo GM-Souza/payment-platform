@@ -4,6 +4,7 @@ import com.grupo5.payment_platform.DTOs.TransactionRequestDTO;
 import com.grupo5.payment_platform.Enums.TransactionStatus;
 import com.grupo5.payment_platform.Exceptions.InsufficientBalanceException;
 import com.grupo5.payment_platform.Exceptions.InvalidTransactionAmountException;
+import com.grupo5.payment_platform.Exceptions.PixQrCodeNotFoundException;
 import com.grupo5.payment_platform.Models.TransactionModel;
 import com.grupo5.payment_platform.Models.UserModel;
 import com.grupo5.payment_platform.Models.payments.PixPaymentDetail;
@@ -131,7 +132,6 @@ public class TransactionService {
             throw new InsufficientBalanceException("Saldo insuficiente.");
         }
 
-        // Faz a transferência
         sender.setBalance(sender.getBalance().subtract(amount));
         receiver.setBalance(receiver.getBalance().add(amount));
 
@@ -141,6 +141,18 @@ public class TransactionService {
         transactionRepository.save(transaction);
 
         return transaction;
+    }
+    //Metodo para pagar o pix via copy-paste sem mercado pago (simulação)
+    public TransactionModel CopyPastTransaction(String qrCodeCopyPaste){
+        PixPaymentDetail pixDetail = pixPaymentDetailRepository.findByQrCodeCopyPaste(qrCodeCopyPaste);
+        if (pixDetail == null) {
+            throw new PixQrCodeNotFoundException("Cobrança Pix não encontrada.");
+        }
+        var transaction = pixDetail.getTransaction();
+        transaction.getReceiver().setBalance(transaction.getReceiver().getBalance().add(pixDetail.getAmount()));
+        transaction.getSender().setBalance(transaction.getSender().getBalance().subtract(pixDetail.getAmount()));
+        transaction.setStatus(TransactionStatus.APPROVED);
+        return transactionRepository.save(transaction);
     }
 
 }
