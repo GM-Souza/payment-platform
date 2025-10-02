@@ -1,10 +1,7 @@
 package com.grupo5.payment_platform.Controllers;
 
 
-import com.grupo5.payment_platform.DTOs.PixReceiverRequestDTO;
-import com.grupo5.payment_platform.DTOs.PixRequestDTO;
-import com.grupo5.payment_platform.DTOs.PixResponseDTO;
-import com.grupo5.payment_platform.DTOs.TransactionRequestDTO;
+import com.grupo5.payment_platform.DTOs.*;
 import com.grupo5.payment_platform.Models.TransactionModel;
 import com.grupo5.payment_platform.Models.payments.PixPaymentDetail;
 import com.grupo5.payment_platform.Services.TransactionService;
@@ -25,31 +22,41 @@ public class TransactionController {
     //Endpoint para metodo de transferencia interna p2p
     @PostMapping
     public ResponseEntity<TransactionModel> createTransaction(@RequestBody TransactionRequestDTO dto){
-        TransactionModel newTransaction = transactionService.createPixTransaction(dto);
+        TransactionModel newTransaction = transactionService.createTransaction(dto);
         return new ResponseEntity<>(newTransaction, HttpStatus.OK);
     }
 
-    //Endpoint para metodo de transferencia pix via mp
+    // -----------------------------
+    // GERAR COBRANÇA PIX
+    // -----------------------------
     @PostMapping("/pix")
-    public ResponseEntity<PixResponseDTO> createPixTransaction(@RequestBody PixReceiverRequestDTO dto) throws Exception {
-       PixPaymentDetail pixTransaction = transactionService.gerarCobrancaPix(dto);
+    public ResponseEntity<PixReceiverResponseDTO> createPixTransaction(@RequestBody PixReceiverRequestDTO dto) throws Exception {
+        PixPaymentDetail pixDetail = transactionService.gerarCobrancaPix(dto);
 
-        PixPaymentDetail pixPaymentDetail = (PixPaymentDetail)  pixTransaction.getTransaction().getPaymentDetail();
-        PixResponseDTO pixResponse = new PixResponseDTO(pixTransaction.getId(),pixTransaction.getTransaction().getStatus().toString(),pixPaymentDetail.getQrCodeBase64(),pixPaymentDetail.getQrCodeCopyPaste());
-        return ResponseEntity.ok(pixResponse);
+        PixReceiverResponseDTO response = new PixReceiverResponseDTO(
+                pixDetail.getTransaction().getId(),
+                pixDetail.getTransaction().getStatus().toString(), // PENDING
+                pixDetail.getQrCodeBase64(),
+                pixDetail.getQrCodeCopyPaste()
+        );
+
+        return ResponseEntity.ok(response);
     }
 
-    /*@PostMapping("/pix{qrcode}")
-    public ResponseEntity<PixResponseDTO> payPixTransaction(@PathVariable String qrcode) throws Exception {
-       TransactionModel pixTransaction = transactionService.pagarViaPixCopyPaste(qrcode);
-       PixResponseDTO responseDTO = new PixResponseDTO(pixTransaction.getId(), pixTransaction.getStatus().toString(), null, null);
-       return ResponseEntity.ok(responseDTO);
-    }*/
-
+    // -----------------------------
+    // PAGAR COBRANÇA PIX
+    // -----------------------------
     @PostMapping("/pagar-copy-paste")
-    public ResponseEntity<TransactionModel> pagarViaPixCopyPaste(@RequestBody PixRequestDTO request) throws Exception {
+    public ResponseEntity<PixSenderResponseDTO> pagarViaPixCopyPaste(@RequestBody PixSenderRequestDTO request) throws Exception {
         TransactionModel transacao = transactionService.pagarViaPixCopyPaste(request);
-        return ResponseEntity.ok(transacao);
+
+        PixSenderResponseDTO response = new PixSenderResponseDTO(
+                transacao.getId(),
+                transacao.getStatus().toString(),
+                transacao.getAmount()
+        );
+
+        return ResponseEntity.ok(response);
     }
 
 }
