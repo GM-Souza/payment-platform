@@ -60,6 +60,7 @@ public class GlobalHandlerException {
     @ExceptionHandler(InsufficientBalanceException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ErrorResponseDTO handleInsufficientBalance(InsufficientBalanceException ex) {
+        ex.getStackTrace();
         return new ErrorResponseDTO(
                 ex.getMessage(),
                 "The sender's account does not have sufficient funds to complete the transaction.",
