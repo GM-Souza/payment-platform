@@ -5,6 +5,7 @@ import com.grupo5.payment_platform.Enums.TransactionStatus;
 import com.grupo5.payment_platform.Exceptions.InsufficientBalanceException;
 import com.grupo5.payment_platform.Exceptions.InvalidTransactionAmountException;
 import com.grupo5.payment_platform.Exceptions.PixQrCodeNotFoundException;
+import com.grupo5.payment_platform.Exceptions.UserNotFoundException;
 import com.grupo5.payment_platform.Models.TransactionModel;
 import com.grupo5.payment_platform.Models.UserModel;
 import com.grupo5.payment_platform.Models.payments.PixPaymentDetail;
@@ -19,7 +20,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Service
 public class TransactionService {
@@ -35,17 +35,23 @@ public class TransactionService {
         this.pixPaymentDetailRepository = pixPaymentDetailRepository;
     }
 
-    //Metodo de transferencia pix
-    @Transactional
-    public TransactionModel createTransaction(TransactionRequestDTO dto){
+    //Metodo de pagamento pix
+  @Transactional
+    public TransactionModel createPixTransaction(TransactionRequestDTO dto){
 
-        UserModel sender = this.userService.findById(dto.senderId());
-        UserModel receiver = this.userService.findById(dto.receiverId());
+        UserModel sender = userService.findById(dto.senderId());
+      if (sender == null) {
+          throw new UserNotFoundException("Receiver não encontrado");
+      }
 
-        // validações
+      UserModel receiver = userService.findById(dto.receiverId());
+      if (receiver == null) {
+          throw new UserNotFoundException("Receiver não encontrado");
+      }
+
         if (dto.amount() == null || dto.amount().compareTo(BigDecimal.ZERO) <= 0) {
             throw new InvalidTransactionAmountException("The transaction amount must be greater than zero.");
-        }
+      }
 
         if (sender.getBalance().compareTo(dto.amount()) < 0) {
             throw new InsufficientBalanceException("Sender does not have enough balance.");
@@ -67,11 +73,12 @@ public class TransactionService {
         return newTransaction;
     }
 
-    //Alterações no pagamento via pix com mercado pago
 
-    // Cria a cobrança Pix e retorna os dados para pagamento
-    public PixPaymentDetail gerarCobrancaPix(UUID receiverId, BigDecimal amount) throws Exception {
-        UserModel receiver = userService.findById(receiverId);
+    //Metodo cobrança pix
+    public PixPaymentDetail gerarCobrancaPix(TransactionRequestDTO detail) throws Exception {
+        UserModel sender = userService.findById(detail.senderId());
+        UserModel receiver = userService.findById(detail.receiverId());
+        BigDecimal amount = detail.amount();
 
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new InvalidTransactionAmountException("O valor deve ser maior que zero.");
@@ -93,7 +100,6 @@ public class TransactionService {
         pixDetail.setMercadoPagoPaymentId(paymentResponse.getId());
         pixDetail.setAmount(amount);
 
-        // Salva cobrança no banco (status PENDING)
         TransactionModel transaction = new TransactionModel();
         transaction.setSender(null); // ainda não tem pagador
         transaction.setReceiver(receiver);
@@ -101,24 +107,24 @@ public class TransactionService {
         transaction.setDate(LocalDateTime.now());
         transaction.setStatus(TransactionStatus.PENDING);
         transaction.setPaymentDetail(pixDetail);
+        pixDetail.setTransaction(transaction);
 
+        pixPaymentDetailRepository.save(pixDetail);
         transactionRepository.save(transaction);
 
         return pixDetail;
     }
 
-    //Metodo para pagar o pix via copy-paste
+    //Metodo para pagar a cobrança pix
     @Transactional
-    public TransactionModel pagarViaPixCopyPaste(UUID senderId, String qrCodeCopyPaste) throws Exception {
-        UserModel sender = userService.findById(senderId);
+    public TransactionModel pagarViaPixCopyPaste(String qrCodeCopyPaste) throws Exception {
 
-        // Busca cobrança pelo código copy-paste
         PixPaymentDetail pixDetail = pixPaymentDetailRepository.findByQrCodeCopyPaste(qrCodeCopyPaste);
         if (pixDetail == null) {
-            throw new RuntimeException("Cobrança Pix não encontrada.");
+            throw new PixQrCodeNotFoundException("Cobrança Pix não encontrada.");
         }
+        UserModel sender = pixDetail.getTransaction().getSender();
 
-        // Verifica se o pagamento foi aprovado via MercadoPago
         PaymentClient client = new PaymentClient();
         Payment payment = client.get(pixDetail.getMercadoPagoPaymentId());
         if (!"approved".equalsIgnoreCase(payment.getStatus())) {
@@ -142,17 +148,4 @@ public class TransactionService {
 
         return transaction;
     }
-    //Metodo para pagar o pix via copy-paste sem mercado pago (simulação)
-    public TransactionModel CopyPastTransaction(String qrCodeCopyPaste){
-        PixPaymentDetail pixDetail = pixPaymentDetailRepository.findByQrCodeCopyPaste(qrCodeCopyPaste);
-        if (pixDetail == null) {
-            throw new PixQrCodeNotFoundException("Cobrança Pix não encontrada.");
-        }
-        var transaction = pixDetail.getTransaction();
-        transaction.getReceiver().setBalance(transaction.getReceiver().getBalance().add(pixDetail.getAmount()));
-        transaction.getSender().setBalance(transaction.getSender().getBalance().subtract(pixDetail.getAmount()));
-        transaction.setStatus(TransactionStatus.APPROVED);
-        return transactionRepository.save(transaction);
-    }
-
 }
