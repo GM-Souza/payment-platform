@@ -1,6 +1,7 @@
 package com.grupo5.payment_platform.Controllers;
 
 
+import com.grupo5.payment_platform.DTOs.PixRequestDTO;
 import com.grupo5.payment_platform.DTOs.PixResponseDTO;
 import com.grupo5.payment_platform.DTOs.TransactionRequestDTO;
 import com.grupo5.payment_platform.Models.TransactionModel;
@@ -37,10 +38,17 @@ public class TransactionController {
         return ResponseEntity.ok(pixResponse);
     }
 
-    @PostMapping("/pix{qrcode}")
+    /*@PostMapping("/pix{qrcode}")
     public ResponseEntity<PixResponseDTO> payPixTransaction(@PathVariable String qrcode) throws Exception {
        TransactionModel pixTransaction = transactionService.pagarViaPixCopyPaste(qrcode);
        PixResponseDTO responseDTO = new PixResponseDTO(pixTransaction.getId(), pixTransaction.getStatus().toString(), null, null);
        return ResponseEntity.ok(responseDTO);
+    }*/
+
+    @PostMapping("/pagar-copy-paste")
+    public ResponseEntity<TransactionModel> pagarViaPixCopyPaste(@RequestBody PixRequestDTO request) throws Exception {
+        TransactionModel transacao = transactionService.pagarViaPixCopyPaste(request.senderId(), request.qrCodeCopyPaste());
+        return ResponseEntity.ok(transacao);
     }
+
 }

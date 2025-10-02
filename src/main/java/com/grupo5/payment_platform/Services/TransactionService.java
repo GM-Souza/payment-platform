@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Service
 public class TransactionService {
@@ -94,22 +95,26 @@ public class TransactionService {
         PaymentClient client = new PaymentClient();
         Payment paymentResponse = client.create(createRequest);
 
-        PixPaymentDetail pixDetail = new PixPaymentDetail();
-        pixDetail.setQrCodeBase64(paymentResponse.getPointOfInteraction().getTransactionData().getQrCodeBase64());
-        pixDetail.setQrCodeCopyPaste(paymentResponse.getPointOfInteraction().getTransactionData().getQrCode());
-        pixDetail.setMercadoPagoPaymentId(paymentResponse.getId());
-        pixDetail.setAmount(amount);
-
         TransactionModel transaction = new TransactionModel();
         transaction.setSender(null); // ainda não tem pagador
         transaction.setReceiver(receiver);
         transaction.setAmount(amount);
         transaction.setDate(LocalDateTime.now());
         transaction.setStatus(TransactionStatus.PENDING);
-        transaction.setPaymentDetail(pixDetail);
+
+        transaction = transactionRepository.save(transaction);
+
+        PixPaymentDetail pixDetail = new PixPaymentDetail();
+        pixDetail.setQrCodeBase64(paymentResponse.getPointOfInteraction().getTransactionData().getQrCodeBase64());
+        pixDetail.setQrCodeCopyPaste(paymentResponse.getPointOfInteraction().getTransactionData().getQrCode());
+        pixDetail.setMercadoPagoPaymentId(paymentResponse.getId());
+        pixDetail.setAmount(amount);
         pixDetail.setTransaction(transaction);
 
-        pixPaymentDetailRepository.save(pixDetail);
+        pixPaymentDetailRepository.save(pixDetail); // Salva o Pix detail
+
+        // 4. (Opcional) Atualiza a transação com o PixDetail
+        transaction.setPaymentDetail(pixDetail);
         transactionRepository.save(transaction);
 
         return pixDetail;
@@ -117,7 +122,7 @@ public class TransactionService {
 
     //Metodo para pagar a cobrança pix
     @Transactional
-    public TransactionModel pagarViaPixCopyPaste(String qrCodeCopyPaste) throws Exception {
+    public TransactionModel pagarViaPixCopyPaste(UUID uuid, String qrCodeCopyPaste) throws Exception {
 
         PixPaymentDetail pixDetail = pixPaymentDetailRepository.findByQrCodeCopyPaste(qrCodeCopyPaste);
         if (pixDetail == null) {
@@ -125,11 +130,6 @@ public class TransactionService {
         }
         UserModel sender = pixDetail.getTransaction().getSender();
 
-        PaymentClient client = new PaymentClient();
-        Payment payment = client.get(pixDetail.getMercadoPagoPaymentId());
-        if (!"approved".equalsIgnoreCase(payment.getStatus())) {
-            throw new RuntimeException("Pagamento Pix não aprovado.");
-        }
 
         UserModel receiver = pixDetail.getTransaction().getReceiver();
         BigDecimal amount = pixDetail.getAmount();
