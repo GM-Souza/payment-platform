@@ -1,9 +1,6 @@
 package com.grupo5.payment_platform.Models.payments;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Lob;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -17,8 +14,7 @@ public class PixPaymentDetail extends PaymentDetail {
 
     private Long mercadoPagoPaymentId; // ID do pagamento gerado pelo MercadoPago
     private BigDecimal amount;
-
-
+    
     @Column(name = "qr_code_base64", columnDefinition = "TEXT")
     private String qrCodeBase64;
 
