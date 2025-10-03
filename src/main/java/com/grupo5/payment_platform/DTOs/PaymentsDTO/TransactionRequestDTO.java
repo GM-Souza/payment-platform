@@ -1,4 +1,4 @@
-package com.grupo5.payment_platform.DTOs;
+package com.grupo5.payment_platform.DTOs.PaymentsDTO;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;

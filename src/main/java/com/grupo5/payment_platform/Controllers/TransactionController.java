@@ -1,7 +1,7 @@
 package com.grupo5.payment_platform.Controllers;
 
 
-import com.grupo5.payment_platform.DTOs.*;
+import com.grupo5.payment_platform.DTOs.PaymentsDTO.*;
 import com.grupo5.payment_platform.Models.TransactionModel;
 import com.grupo5.payment_platform.Models.payments.PixPaymentDetail;
 import com.grupo5.payment_platform.Services.TransactionService;
