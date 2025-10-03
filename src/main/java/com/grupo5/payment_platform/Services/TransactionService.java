@@ -1,16 +1,13 @@
 package com.grupo5.payment_platform.Services;
 
-import com.grupo5.payment_platform.DTOs.PixReceiverRequestDTO;
-import com.grupo5.payment_platform.DTOs.PixSenderRequestDTO;
-import com.grupo5.payment_platform.DTOs.TransactionRequestDTO;
+import com.grupo5.payment_platform.DTOs.PaymentsDTO.*;
 import com.grupo5.payment_platform.Enums.TransactionStatus;
-import com.grupo5.payment_platform.Exceptions.InsufficientBalanceException;
-import com.grupo5.payment_platform.Exceptions.InvalidTransactionAmountException;
-import com.grupo5.payment_platform.Exceptions.PixQrCodeNotFoundException;
-import com.grupo5.payment_platform.Exceptions.UserNotFoundException;
+import com.grupo5.payment_platform.Exceptions.*;
 import com.grupo5.payment_platform.Models.TransactionModel;
 import com.grupo5.payment_platform.Models.UserModel;
+import com.grupo5.payment_platform.Models.payments.BoletoPaymentDetail;
 import com.grupo5.payment_platform.Models.payments.PixPaymentDetail;
+import com.grupo5.payment_platform.Repositories.BoletoPaymentDetailRepository;
 import com.grupo5.payment_platform.Repositories.PixPaymentDetailRepository;
 import com.grupo5.payment_platform.Repositories.TransactionRepository;
 import com.mercadopago.client.payment.PaymentClient;
@@ -26,15 +23,17 @@ import java.time.LocalDateTime;
 @Service
 public class TransactionService {
 
+    private final BoletoPaymentDetailRepository boletoPaymentDetailRepository;
     private TransactionRepository transactionRepository;
     private UserService userService;
     private PixPaymentDetailRepository pixPaymentDetailRepository;
 
 
-    public TransactionService(TransactionRepository transactionRepository, UserService userService, PixPaymentDetailRepository pixPaymentDetailRepository) {
+    public TransactionService(TransactionRepository transactionRepository, UserService userService, PixPaymentDetailRepository pixPaymentDetailRepository, BoletoPaymentDetailRepository boletoPaymentDetailRepository) {
         this.transactionRepository = transactionRepository;
         this.userService = userService;
         this.pixPaymentDetailRepository = pixPaymentDetailRepository;
+        this.boletoPaymentDetailRepository = boletoPaymentDetailRepository;
     }
 
     public TransactionModel createTransaction(TransactionRequestDTO dto){
@@ -158,6 +157,78 @@ public class TransactionService {
         transaction.setSender(sender);
         transaction.setStatus(TransactionStatus.APPROVED);// aprovado quando pago
         transaction.setMercadoPagoPaymentId(mercadoPagoPaymentId);
+        transactionRepository.save(transaction);
+
+        return transaction;
+    }
+    // GERAR COBRANÇA BOLETO
+    public BoletoPaymentDetail gerarCobrancaBoleto(BoletoReceiverRequestDTO detail) throws Exception {
+        UserModel receiver = userService.findById(detail.receiverId());
+        BigDecimal amount = detail.amount();
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new InvalidTransactionAmountException("O valor deve ser maior que zero.");
+        }
+        PaymentCreateRequest createRequest = PaymentCreateRequest.builder()
+                .transactionAmount(amount)
+                .description("Cobrança Boleto para " + receiver.getEmail())
+                .paymentMethodId("bolbradesco")
+                .payer(PaymentPayerRequest.builder().email(receiver.getEmail()).build())
+                .build();
+
+        PaymentClient client = new PaymentClient();
+        Payment paymentResponse = client.create(createRequest);
+
+        TransactionModel transaction = new TransactionModel();
+        transaction.setSender(null);
+        transaction.setReceiver(receiver);
+        transaction.setAmount(amount);
+        transaction.setDate(LocalDateTime.now());
+        transaction.setStatus(TransactionStatus.PENDING);
+        transaction = transactionRepository.save(transaction);
+
+        BoletoPaymentDetail boletoDetail = new BoletoPaymentDetail();
+        boletoDetail.setBarcode(paymentResponse.getCouponCode());
+        boletoDetail.setMercadoPagoPaymentId(paymentResponse.getId());
+        boletoDetail.setAmount(amount);
+        boletoDetail.setTransaction(transaction);
+
+        boletoPaymentDetailRepository.save(boletoDetail);
+
+        transaction.setPaymentDetail(boletoDetail);
+        transactionRepository.save(transaction);
+        return boletoDetail;
+    }
+
+    // PAGAR COBRANÇA BOLETO
+
+    @Transactional
+    public TransactionModel pagarCobrancaBoleto(BoletoSenderRequestDTO detail) throws Exception {
+        BoletoPaymentDetail boletoDetail = boletoPaymentDetailRepository.findByBarcode(detail.barcode());
+        if (boletoDetail == null) {
+            throw new BoletoBarcodeNotFoundException("Cobrança Boleto não encontrada.");
+        }
+        TransactionModel transaction = boletoDetail.getTransaction();
+
+        if (!transaction.getStatus().equals(TransactionStatus.PENDING)) {
+            throw new InvalidTransactionAmountException("Essa cobrança já foi paga ou cancelada.");
+        }
+
+        UserModel sender = userService.findById(detail.senderId());
+        if (sender == null || sender == boletoDetail.getTransaction().getReceiver()) {
+            throw new UserNotFoundException("Pagador não encontrado ou inválido.");
+        }
+
+        BigDecimal amount = boletoDetail.getAmount();
+        if(sender.getBalance().compareTo(amount) < 0) {
+            throw new InsufficientBalanceException("Saldo insuficiente.");
+        }
+
+        sender.setBalance(sender.getBalance().subtract(amount));
+        transaction.getReceiver().setBalance(transaction.getAmount().add(amount));
+
+        transaction.setSender(sender);
+        transaction.setStatus(TransactionStatus.APPROVED);
+        transaction.setMercadoPagoPaymentId(boletoDetail.getMercadoPagoPaymentId());
         transactionRepository.save(transaction);
 
         return transaction;
