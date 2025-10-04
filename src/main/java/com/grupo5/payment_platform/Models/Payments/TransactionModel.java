@@ -1,5 +1,6 @@
 package com.grupo5.payment_platform.Models.Payments;
 
+import com.grupo5.payment_platform.Enums.PaymentType;
 import com.grupo5.payment_platform.Enums.TransactionStatus;
 import com.grupo5.payment_platform.Models.Users.UserModel;
 import jakarta.persistence.*;
@@ -51,6 +52,10 @@ public class TransactionModel {
 
     @OneToOne(mappedBy = "transaction", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private PaymentDetail paymentDetail;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "payment_type")
+    private PaymentType paymentType;
 
 
 
