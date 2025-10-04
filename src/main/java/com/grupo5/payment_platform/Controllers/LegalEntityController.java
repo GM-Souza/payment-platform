@@ -47,4 +47,5 @@ public class LegalEntityController {
         LegalEntityResponseDTO alterIndividual = legalEntityService.alter(id, entity);
         return ResponseEntity.ok(alterIndividual);
     }
+
 }
