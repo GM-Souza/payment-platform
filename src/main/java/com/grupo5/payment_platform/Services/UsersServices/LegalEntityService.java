@@ -1,9 +1,9 @@
-package com.grupo5.payment_platform.Services;
+package com.grupo5.payment_platform.Services.UsersServices;
 
-import com.grupo5.payment_platform.DTOs.LegalEntityRequestDTO;
-import com.grupo5.payment_platform.DTOs.LegalEntityResponseDTO;
+import com.grupo5.payment_platform.DTOs.LegalEntityDTOs.LegalEntityRequestDTO;
+import com.grupo5.payment_platform.DTOs.LegalEntityDTOs.LegalEntityResponseDTO;
 import com.grupo5.payment_platform.Exceptions.LegalEntityNotFoundException;
-import com.grupo5.payment_platform.Models.LegalEntityModel;
+import com.grupo5.payment_platform.Models.Users.LegalEntityModel;
 import com.grupo5.payment_platform.Repositories.LegalEntityRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;

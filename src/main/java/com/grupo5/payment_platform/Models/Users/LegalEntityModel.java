@@ -1,4 +1,4 @@
-package com.grupo5.payment_platform.Models;
+package com.grupo5.payment_platform.Models.Users;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -8,22 +8,22 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.hibernate.validator.constraints.br.CPF;
+import org.hibernate.validator.constraints.br.CNPJ;
 
 @Getter
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
-@Table(name = "tb_individual")
+@Table(name = "tb_legal_entity")
 @PrimaryKeyJoinColumn(name = "user_id")
-public class IndividualModel extends UserModel {
+public class LegalEntityModel extends UserModel {
 
-    @Column(name = "fullname",nullable = false)
-    private String fullname;
+    @Column(name = "legal_name",nullable = false)
+    private String legalName;
 
-    @CPF
-    @Column(name = "cpf", nullable = false, unique = true)
-    private String cpf;
+    @CNPJ
+    @Column(name = "cnpj", nullable = false, unique = true)
+    private String cnpj;
 
 }

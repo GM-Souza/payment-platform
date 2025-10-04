@@ -1,4 +1,4 @@
-package com.grupo5.payment_platform.DTOs;
+package com.grupo5.payment_platform.Obsolete;
 
 import java.math.BigDecimal;
 import java.util.UUID;

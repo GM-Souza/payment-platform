@@ -1,6 +1,6 @@
-package com.grupo5.payment_platform.DTOs;
+package com.grupo5.payment_platform.DTOs.IndivualDTOs;
 
-import com.grupo5.payment_platform.Models.IndividualModel;
+import com.grupo5.payment_platform.Models.Users.IndividualModel;
 
 import java.math.BigDecimal;
 

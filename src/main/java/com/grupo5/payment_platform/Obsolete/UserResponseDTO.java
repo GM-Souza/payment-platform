@@ -1,8 +1,7 @@
-package com.grupo5.payment_platform.DTOs;
+package com.grupo5.payment_platform.Obsolete;
 
-import com.grupo5.payment_platform.Models.UserModel;
+import com.grupo5.payment_platform.Models.Users.UserModel;
 import java.math.BigDecimal;
-import java.util.UUID;
 
 public record UserResponseDTO (String email, BigDecimal balance){
 

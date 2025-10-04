@@ -1,4 +1,4 @@
-package com.grupo5.payment_platform.Models;
+package com.grupo5.payment_platform.Models.Users;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;

@@ -1,8 +1,8 @@
 package com.grupo5.payment_platform.Controllers;
 
-import com.grupo5.payment_platform.DTOs.LegalEntityRequestDTO;
-import com.grupo5.payment_platform.DTOs.LegalEntityResponseDTO;
-import com.grupo5.payment_platform.Services.LegalEntityService;
+import com.grupo5.payment_platform.DTOs.LegalEntityDTOs.LegalEntityRequestDTO;
+import com.grupo5.payment_platform.DTOs.LegalEntityDTOs.LegalEntityResponseDTO;
+import com.grupo5.payment_platform.Services.UsersServices.LegalEntityService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;

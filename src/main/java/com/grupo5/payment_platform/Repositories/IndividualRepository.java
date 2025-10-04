@@ -1,6 +1,6 @@
 package com.grupo5.payment_platform.Repositories;
 
-import com.grupo5.payment_platform.Models.IndividualModel;
+import com.grupo5.payment_platform.Models.Users.IndividualModel;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.UUID;

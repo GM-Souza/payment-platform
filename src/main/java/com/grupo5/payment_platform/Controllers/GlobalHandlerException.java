@@ -1,6 +1,7 @@
-package com.grupo5.payment_platform.Exceptions;
+package com.grupo5.payment_platform.Controllers;
 
 import com.grupo5.payment_platform.DTOs.ErrorResponseDTO;
+import com.grupo5.payment_platform.Exceptions.*;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -11,7 +12,6 @@ import java.time.LocalDateTime;
 
 @RestControllerAdvice
 public class GlobalHandlerException {
-
 
     @ExceptionHandler(IndividualNotFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)

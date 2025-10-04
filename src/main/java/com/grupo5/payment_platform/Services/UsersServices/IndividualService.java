@@ -1,9 +1,9 @@
-package com.grupo5.payment_platform.Services;
+package com.grupo5.payment_platform.Services.UsersServices;
 
-import com.grupo5.payment_platform.DTOs.IndividualRequestDTO;
-import com.grupo5.payment_platform.DTOs.IndividualResponseDTO;
+import com.grupo5.payment_platform.DTOs.IndivualDTOs.IndividualRequestDTO;
+import com.grupo5.payment_platform.DTOs.IndivualDTOs.IndividualResponseDTO;
 import com.grupo5.payment_platform.Exceptions.IndividualNotFoundException;
-import com.grupo5.payment_platform.Models.IndividualModel;
+import com.grupo5.payment_platform.Models.Users.IndividualModel;
 import com.grupo5.payment_platform.Repositories.IndividualRepository;
 import org.springframework.stereotype.Service;
 

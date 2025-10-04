@@ -1,4 +1,4 @@
-package com.grupo5.payment_platform.DTOs;
+package com.grupo5.payment_platform.DTOs.IndivualDTOs;
 
 import java.math.BigDecimal;
 

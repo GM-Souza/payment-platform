@@ -1,7 +1,6 @@
-package com.grupo5.payment_platform.Services;
+package com.grupo5.payment_platform.Services.UsersServices;
 
-import com.grupo5.payment_platform.Exceptions.UserNotFoundException;
-import com.grupo5.payment_platform.Models.UserModel;
+import com.grupo5.payment_platform.Models.Users.UserModel;
 import com.grupo5.payment_platform.Repositories.UserRepository;
 import org.springframework.stereotype.Service;
 
