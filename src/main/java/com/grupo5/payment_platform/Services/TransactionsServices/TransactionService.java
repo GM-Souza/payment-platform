@@ -18,11 +18,13 @@ import com.mercadopago.client.payment.PaymentClient;
 import com.mercadopago.client.payment.PaymentCreateRequest;
 import com.mercadopago.client.payment.PaymentPayerRequest;
 import com.mercadopago.resources.payment.Payment;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 public class TransactionService {
@@ -181,5 +183,16 @@ public class TransactionService {
         transactionRepository.save(transaction);
 
         return transaction;
+    }
+
+    // Este metodo é chamado automaticamente pelo Spring, não manualmente
+    @Scheduled(fixedRate = 60000)
+    public void cancelarPixPendentes() {
+        LocalDateTime limite = LocalDateTime.now().minusMinutes(1);
+        List<TransactionModel> pendentes = transactionRepository.findByStatusAndCreateDateBefore(TransactionStatus.PENDING, limite);
+        for (TransactionModel transacao : pendentes) {
+            transacao.setStatus(TransactionStatus.CANCELLED);
+            transactionRepository.save(transacao);
+        }
     }
 }
