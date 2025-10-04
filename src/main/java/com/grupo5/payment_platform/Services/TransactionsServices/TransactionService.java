@@ -1,18 +1,19 @@
-package com.grupo5.payment_platform.Services;
+package com.grupo5.payment_platform.Services.TransactionsServices;
 
-import com.grupo5.payment_platform.DTOs.PixReceiverRequestDTO;
-import com.grupo5.payment_platform.DTOs.PixSenderRequestDTO;
-import com.grupo5.payment_platform.DTOs.TransactionRequestDTO;
+import com.grupo5.payment_platform.DTOs.PixDTOs.PixReceiverRequestDTO;
+import com.grupo5.payment_platform.DTOs.PixDTOs.PixSenderRequestDTO;
+import com.grupo5.payment_platform.Obsolete.TransactionRequestDTO;
 import com.grupo5.payment_platform.Enums.TransactionStatus;
 import com.grupo5.payment_platform.Exceptions.InsufficientBalanceException;
 import com.grupo5.payment_platform.Exceptions.InvalidTransactionAmountException;
 import com.grupo5.payment_platform.Exceptions.PixQrCodeNotFoundException;
 import com.grupo5.payment_platform.Exceptions.UserNotFoundException;
-import com.grupo5.payment_platform.Models.TransactionModel;
-import com.grupo5.payment_platform.Models.UserModel;
-import com.grupo5.payment_platform.Models.payments.PixPaymentDetail;
+import com.grupo5.payment_platform.Models.Payments.TransactionModel;
+import com.grupo5.payment_platform.Models.Users.UserModel;
+import com.grupo5.payment_platform.Models.Payments.PixPaymentDetail;
 import com.grupo5.payment_platform.Repositories.PixPaymentDetailRepository;
 import com.grupo5.payment_platform.Repositories.TransactionRepository;
+import com.grupo5.payment_platform.Services.UsersServices.UserService;
 import com.mercadopago.client.payment.PaymentClient;
 import com.mercadopago.client.payment.PaymentCreateRequest;
 import com.mercadopago.client.payment.PaymentPayerRequest;
@@ -67,13 +68,12 @@ public class TransactionService {
         newTransaction.setSender(sender);
         newTransaction.setReceiver(receiver);
         newTransaction.setAmount(dto.amount());
-        newTransaction.setDate(LocalDateTime.now());
+        newTransaction.setCreateDate(LocalDateTime.now());
+        newTransaction.setFinalDate(null);
         transactionRepository.save(newTransaction);
 
         return newTransaction;
     }
-
-
 
     // GERAR COBRANÇA PIX
 
@@ -102,7 +102,8 @@ public class TransactionService {
         transaction.setSender(null);
         transaction.setReceiver(receiver);
         transaction.setAmount(amount);
-        transaction.setDate(LocalDateTime.now());
+        transaction.setCreateDate(LocalDateTime.now());
+        transaction.setFinalDate(null);
         transaction.setStatus(TransactionStatus.PENDING);
         transaction = transactionRepository.save(transaction);
 
@@ -157,6 +158,7 @@ public class TransactionService {
 
         transaction.setSender(sender);
         transaction.setStatus(TransactionStatus.APPROVED);// aprovado quando pago
+        transaction.setFinalDate(LocalDateTime.now());
         transaction.setMercadoPagoPaymentId(mercadoPagoPaymentId);
         transactionRepository.save(transaction);
 

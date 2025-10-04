@@ -1,7 +1,7 @@
-package com.grupo5.payment_platform.Models;
+package com.grupo5.payment_platform.Models.Payments;
 
 import com.grupo5.payment_platform.Enums.TransactionStatus;
-import com.grupo5.payment_platform.Models.payments.PaymentDetail;
+import com.grupo5.payment_platform.Models.Users.UserModel;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -32,8 +32,11 @@ public class TransactionModel {
     @Column(name = "amount", nullable = false)
     private BigDecimal amount;
 
-    @Column(name = "date", nullable = false)
-    private LocalDateTime date;
+    @Column(name = "create_transaction_date")
+    private LocalDateTime createDate;
+
+    @Column(name = "final_transaction_date")
+    private LocalDateTime finalDate;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "receiver_id")
