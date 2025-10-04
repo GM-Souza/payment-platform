@@ -1,7 +1,11 @@
 package com.grupo5.payment_platform.Services.TransactionsServices;
 
+import com.grupo5.payment_platform.DTOs.PixDTOs.PixPaymentWithCreditCardRequest;
+import com.grupo5.payment_platform.DTOs.PixDTOs.PixPaymentWithCreditCardResponse;
 import com.grupo5.payment_platform.DTOs.PixDTOs.PixReceiverRequestDTO;
 import com.grupo5.payment_platform.DTOs.PixDTOs.PixSenderRequestDTO;
+import com.grupo5.payment_platform.Enums.PaymentType;
+import com.grupo5.payment_platform.Models.Payments.CreditCardPaymentDetail;
 import com.grupo5.payment_platform.Obsolete.TransactionRequestDTO;
 import com.grupo5.payment_platform.Enums.TransactionStatus;
 import com.grupo5.payment_platform.Exceptions.InsufficientBalanceException;
@@ -13,6 +17,7 @@ import com.grupo5.payment_platform.Models.Users.UserModel;
 import com.grupo5.payment_platform.Models.Payments.PixPaymentDetail;
 import com.grupo5.payment_platform.Repositories.PixPaymentDetailRepository;
 import com.grupo5.payment_platform.Repositories.TransactionRepository;
+import com.grupo5.payment_platform.Repositories.CreditCardPaymentDetailRepository;
 import com.grupo5.payment_platform.Services.UsersServices.UserService;
 import com.mercadopago.client.payment.PaymentClient;
 import com.mercadopago.client.payment.PaymentCreateRequest;
@@ -34,13 +39,15 @@ public class TransactionService {
     private TransactionRepository transactionRepository;
     private UserService userService;
     private PixPaymentDetailRepository pixPaymentDetailRepository;
+    private CreditCardPaymentDetailRepository creditCardPaymentDetailRepository;
 
 
     // Injeção de dependências via construtor
-    public TransactionService(TransactionRepository transactionRepository, UserService userService, PixPaymentDetailRepository pixPaymentDetailRepository) {
+    public TransactionService(TransactionRepository transactionRepository, UserService userService, PixPaymentDetailRepository pixPaymentDetailRepository,CreditCardPaymentDetailRepository creditCardPaymentDetailRepository) {
         this.transactionRepository = transactionRepository;
         this.userService = userService;
         this.pixPaymentDetailRepository = pixPaymentDetailRepository;
+        this.creditCardPaymentDetailRepository = creditCardPaymentDetailRepository;
     }
 
     // CRIAR TRANSAÇÃO SIMPLES
@@ -196,5 +203,76 @@ public class TransactionService {
             transacao.setStatus(TransactionStatus.CANCELLED);
             transactionRepository.save(transacao);
         }
+    }
+
+    //Pagamento da cobrança pix com cartao de credito
+    @Transactional
+    public PixPaymentWithCreditCardResponse pagarCobrancaPixComCartao(PixPaymentWithCreditCardRequest dto) throws MPException, MPApiException {
+        // Busca o detalhe da cobrança Pix
+        PixPaymentDetail pixDetail = pixPaymentDetailRepository.findByQrCodeCopyPaste(dto.qrCodeCopyPaste());
+
+        if (pixDetail == null) {
+            throw new PixQrCodeNotFoundException("Cobrança Pix não encontrada.");
+        }
+
+        TransactionModel originalTransaction = pixDetail.getTransaction();
+
+        // Verifica se a transação já foi paga ou cancelada
+        if (!TransactionStatus.PENDING.equals(originalTransaction.getStatus())) {
+            throw new InvalidTransactionAmountException("Essa cobrança já foi paga ou cancelada.");
+        }
+
+        UserModel sender = userService.findById(dto.senderId());
+        if (sender == null) {
+            throw new UserNotFoundException("Pagador não encontrado.");
+        }
+
+        // Calcula o valor total com a taxa de 2%
+        UserModel receiver = originalTransaction.getReceiver();
+        BigDecimal originalAmount = originalTransaction.getAmount();
+        BigDecimal tax = originalAmount.multiply(BigDecimal.valueOf(0.02));
+        BigDecimal totalAmount = originalAmount.add(tax);
+
+        // Cria a requisição de pagamento no Mercado Pago usando o token do cartão
+        PaymentCreateRequest createRequest = PaymentCreateRequest.builder()
+                .transactionAmount(totalAmount)
+                .description("Pagamento de cobrança Pix com cartão de crédito")
+                .token(dto.cardToken())
+                .installments(1)
+                .payer(PaymentPayerRequest.builder().email(sender.getEmail()).build())
+                .build();
+
+        PaymentClient client = new PaymentClient();
+        Payment paymentResponse = client.create(createRequest);
+
+        sender.setBalance(sender.getBalance().subtract(totalAmount));
+        receiver.setBalance(receiver.getBalance().add(originalAmount));
+
+        // Atualiza a transação original
+        originalTransaction.setSender(sender);
+        originalTransaction.setStatus(TransactionStatus.APPROVED);
+        originalTransaction.setFinalDate(LocalDateTime.now());
+        originalTransaction.setMercadoPagoPaymentId(paymentResponse.getId());
+        originalTransaction.setPaymentType(PaymentType.CREDIT_CARD);
+
+        transactionRepository.save(originalTransaction);
+
+        // Cria e salva os detalhes do pagamento com cartão
+        CreditCardPaymentDetail creditCardDetail = new CreditCardPaymentDetail();
+        creditCardDetail.setMercadoPagoPaymentId(paymentResponse.getId());
+        creditCardDetail.setCardLastFourDigits(paymentResponse.getCard().getLastFourDigits());
+        creditCardDetail.setCardBrand(paymentResponse.getPaymentMethodId());
+        creditCardDetail.setInstallments(paymentResponse.getInstallments());
+        creditCardDetail.setTransaction(originalTransaction);
+
+        creditCardPaymentDetailRepository.save(creditCardDetail);
+
+        // Retorna o DTO de resposta
+        return new PixPaymentWithCreditCardResponse(
+                dto.qrCodeCopyPaste(),
+                originalTransaction.getStatus().name(),
+                totalAmount,
+                PaymentType.CREDIT_CARD.name()
+        );
     }
 }
