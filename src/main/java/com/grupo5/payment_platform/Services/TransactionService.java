@@ -1,6 +1,10 @@
 package com.grupo5.payment_platform.Services;
 
 import com.grupo5.payment_platform.DTOs.PaymentsDTO.*;
+import com.grupo5.payment_platform.DTOs.PaymentsDTO.Boleto.BoletoReceiverRequestDTO;
+import com.grupo5.payment_platform.DTOs.PaymentsDTO.Boleto.BoletoSenderRequestDTO;
+import com.grupo5.payment_platform.DTOs.PaymentsDTO.Pix.PixReceiverRequestDTO;
+import com.grupo5.payment_platform.DTOs.PaymentsDTO.Pix.PixSenderRequestDTO;
 import com.grupo5.payment_platform.Enums.TransactionStatus;
 import com.grupo5.payment_platform.Exceptions.*;
 import com.grupo5.payment_platform.Models.TransactionModel;
@@ -168,11 +172,21 @@ public class TransactionService {
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new InvalidTransactionAmountException("O valor deve ser maior que zero.");
         }
+        String[] nomePartes = receiver.getFullName().trim().split(" ", 2);
+        String firstName = nomePartes.length > 0 ? nomePartes[0] : "Nome";
+        String lastName = nomePartes.length > 1 ? nomePartes[1] : "Sobrenome";
+
+        PaymentPayerRequest payer = PaymentPayerRequest.builder()
+                .email(receiver.getEmail())
+                .firstName(firstName)
+                .lastName(lastName)
+                .build();
+
         PaymentCreateRequest createRequest = PaymentCreateRequest.builder()
                 .transactionAmount(amount)
                 .description("Cobrança Boleto para " + receiver.getEmail())
                 .paymentMethodId("bolbradesco")
-                .payer(PaymentPayerRequest.builder().email(receiver.getEmail()).build())
+                .payer(payer)
                 .build();
 
         PaymentClient client = new PaymentClient();

@@ -19,9 +19,6 @@ import org.hibernate.validator.constraints.br.CPF;
 @PrimaryKeyJoinColumn(name = "user_id")
 public class IndividualModel extends UserModel {
 
-    @Column(name = "fullname",nullable = false)
-    private String fullname;
-
     @CPF
     @Column(name = "cpf", nullable = false, unique = true)
     private String cpf;

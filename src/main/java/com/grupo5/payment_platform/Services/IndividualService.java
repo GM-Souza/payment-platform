@@ -37,7 +37,7 @@ public class IndividualService {
     //Metodo para criar uma entidade
     public IndividualResponseDTO create(IndividualRequestDTO dto){
         IndividualModel ind = new IndividualModel();
-        ind.setFullname(dto.fullname());
+        ind.setFullName(dto.fullname());
         ind.setCpf(dto.cpf());
         ind.setEmail(dto.email());
         ind.setBalance(dto.balance());
@@ -50,7 +50,7 @@ public class IndividualService {
     public IndividualResponseDTO alter(UUID id, IndividualRequestDTO dto){
         IndividualModel updateIndividual = individualRepository.findById(id).orElseThrow(()->
                 new IndividualNotFoundException("User Not Found"));
-        updateIndividual.setFullname(dto.fullname());
+        updateIndividual.setFullName(dto.fullname());
         updateIndividual.setCpf(dto.cpf());
         updateIndividual.setEmail(dto.email());
         individualRepository.save(updateIndividual);

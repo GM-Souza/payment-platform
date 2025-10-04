@@ -2,7 +2,16 @@ package com.grupo5.payment_platform.Controllers;
 
 
 import com.grupo5.payment_platform.DTOs.PaymentsDTO.*;
+import com.grupo5.payment_platform.DTOs.PaymentsDTO.Boleto.BoletoReceiverRequestDTO;
+import com.grupo5.payment_platform.DTOs.PaymentsDTO.Boleto.BoletoReceiverResponseDTO;
+import com.grupo5.payment_platform.DTOs.PaymentsDTO.Boleto.BoletoSenderRequestDTO;
+import com.grupo5.payment_platform.DTOs.PaymentsDTO.Boleto.BoletoSenderResponseDTO;
+import com.grupo5.payment_platform.DTOs.PaymentsDTO.Pix.PixReceiverRequestDTO;
+import com.grupo5.payment_platform.DTOs.PaymentsDTO.Pix.PixReceiverResponseDTO;
+import com.grupo5.payment_platform.DTOs.PaymentsDTO.Pix.PixSenderRequestDTO;
+import com.grupo5.payment_platform.DTOs.PaymentsDTO.Pix.PixSenderResponseDTO;
 import com.grupo5.payment_platform.Models.TransactionModel;
+import com.grupo5.payment_platform.Models.payments.BoletoPaymentDetail;
 import com.grupo5.payment_platform.Models.payments.PixPaymentDetail;
 import com.grupo5.payment_platform.Services.TransactionService;
 import org.springframework.http.HttpStatus;
@@ -54,6 +63,37 @@ public class TransactionController {
         TransactionModel transacao = transactionService.pagarViaPixCopyPaste(request);
 
         PixSenderResponseDTO response = new PixSenderResponseDTO(
+                transacao.getId(),
+                transacao.getStatus().toString(),
+                transacao.getAmount()
+        );
+
+        return ResponseEntity.ok(response);
+    }
+
+    // -----------------------------
+    // GERAR COBRANÇA BOLETO
+    // -----------------------------
+    @PostMapping("/boleto")
+    public ResponseEntity<BoletoReceiverResponseDTO> createBoletoTransaction(@RequestBody BoletoReceiverRequestDTO dto) throws Exception {
+       BoletoPaymentDetail boletoDetail = transactionService.gerarCobrancaBoleto(dto);
+
+        BoletoReceiverResponseDTO response = new BoletoReceiverResponseDTO(
+                boletoDetail.getId(),
+                boletoDetail.getTransaction().getStatus().toString(),
+                boletoDetail.getBarcode());
+
+        return ResponseEntity.ok(response);
+    }
+
+    // -----------------------------
+    // PAGAR COBRANÇA BOLETO
+    // -----------------------------
+    @PostMapping("/pagar-boleto")
+    public ResponseEntity<BoletoSenderResponseDTO> pagarViaBoleto(@RequestBody BoletoSenderRequestDTO request) throws Exception {
+        TransactionModel transacao = transactionService.pagarCobrancaBoleto(request);
+
+        BoletoSenderResponseDTO response = new BoletoSenderResponseDTO(
                 transacao.getId(),
                 transacao.getStatus().toString(),
                 transacao.getAmount()

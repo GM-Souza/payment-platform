@@ -22,11 +22,15 @@ public class UserModel {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+    @Column(name = "full_name",nullable = false)
+    private String fullName;
+
     @Column(name = "email",nullable = false,unique = true)
     private String email;
 
     @Column(name = "balance")
     private BigDecimal balance = BigDecimal.ZERO;
+
 
 
 }

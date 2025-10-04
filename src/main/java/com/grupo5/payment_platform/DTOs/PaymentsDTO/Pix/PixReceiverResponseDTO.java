@@ -1,4 +1,4 @@
-package com.grupo5.payment_platform.DTOs.PaymentsDTO;
+package com.grupo5.payment_platform.DTOs.PaymentsDTO.Pix;
 
 import java.util.UUID;
 
