@@ -7,12 +7,16 @@ import lombok.Setter;
 import java.math.BigDecimal;
 
 @Entity
-@Table(name = "tb_pix_payment_details")
 @Getter
 @Setter
+@Table(name = "tb_pix_payment_details")
+@PrimaryKeyJoinColumn(name = "payment_detail_id")
 public class PixPaymentDetail extends PaymentDetail {
 
+    @Column(name = "mercado_pago_payment_id")
     private Long mercadoPagoPaymentId; // ID do pagamento gerado pelo MercadoPago
+
+    @Column(name = "amount")
     private BigDecimal amount;
     
     @Column(name = "qr_code_base64", columnDefinition = "TEXT")

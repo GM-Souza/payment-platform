@@ -59,4 +59,11 @@ public class TransactionController {
         return ResponseEntity.ok(response);
     }
 
+    //Endpoint para pagar via pix com cartao de credito
+    @PostMapping("/pix/pagar")
+    public ResponseEntity<TransactionModel> pagarViaPix(@RequestBody PixSenderRequestDTO dto) {
+        TransactionModel transacao = transactionService.pagarViaPixCopyPaste(dto);
+        return ResponseEntity.ok(transacao);
+    }
+
 }
