@@ -17,6 +17,8 @@ import com.grupo5.payment_platform.Services.UsersServices.UserService;
 import com.mercadopago.client.payment.PaymentClient;
 import com.mercadopago.client.payment.PaymentCreateRequest;
 import com.mercadopago.client.payment.PaymentPayerRequest;
+import com.mercadopago.exceptions.MPApiException;
+import com.mercadopago.exceptions.MPException;
 import com.mercadopago.resources.payment.Payment;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -46,7 +48,7 @@ public class TransactionService {
 
         UserModel sender = userService.findById(dto.senderId());
       if (sender == null) {
-          throw new UserNotFoundException("Receiver não encontrado");
+          throw new UserNotFoundException("Sender não encontrado");
       }
 
       UserModel receiver = userService.findById(dto.receiverId());
@@ -55,15 +57,15 @@ public class TransactionService {
       }
 
         if (dto.amount() == null || dto.amount().compareTo(BigDecimal.ZERO) <= 0) {
-            throw new InvalidTransactionAmountException("The transaction amount must be greater than zero.");
+            throw new InvalidTransactionAmountException("O valor da transação deve ser maior que zero.");
       }
 
         if (sender.getBalance().compareTo(dto.amount()) < 0) {
-            throw new InsufficientBalanceException("Sender does not have enough balance.");
+            throw new InsufficientBalanceException("O Remetente não tem saldo suficiente.");
         }
 
         if (sender.getId().equals(receiver.getId())) {
-            throw new InvalidTransactionAmountException("Sender and receiver cannot be the same user.");
+            throw new InvalidTransactionAmountException("O remetente e o destinatário não podem ser o mesmo usuário.");
         }
         sender.setBalance(sender.getBalance().subtract(dto.amount()));
         receiver.setBalance(receiver.getBalance().add(dto.amount()));
@@ -81,7 +83,7 @@ public class TransactionService {
 
     // GERAR COBRANÇA PIX
     @Transactional
-    public PixPaymentDetail gerarCobrancaPix(PixReceiverRequestDTO detail) throws Exception {
+    public PixPaymentDetail gerarCobrancaPix(PixReceiverRequestDTO detail) throws MPException, MPApiException {
 
         // Verifica se o receiver existe
         UserModel receiver = userService.findById(detail.receiverId());

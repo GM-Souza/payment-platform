@@ -30,7 +30,7 @@ public class IndividualService {
     //Metodo para listar entidade por id
     public IndividualResponseDTO findById(UUID id){
        IndividualModel individual = individualRepository.findById(id).orElseThrow(() ->
-               new IndividualNotFoundException("User Not Found"));
+               new IndividualNotFoundException("Usuário não encontrado"));
         return  IndividualResponseDTO.fromIndividual(individual);
     }
 
@@ -48,7 +48,7 @@ public class IndividualService {
     //Metodo para alterar a entidade por id
     public IndividualResponseDTO alter(UUID id, IndividualRequestDTO dto){
         IndividualModel updateIndividual = individualRepository.findById(id).orElseThrow(()->
-                new IndividualNotFoundException("User Not Found"));
+                new IndividualNotFoundException("Usuário não encontrado"));
         updateIndividual.setFullname(dto.fullname());
         updateIndividual.setCpf(dto.cpf());
         updateIndividual.setEmail(dto.email());

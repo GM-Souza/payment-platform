@@ -19,7 +19,7 @@ public class GlobalHandlerException {
     public ErrorResponseDTO IndividualNotFoundException(IndividualNotFoundException ex){
         ErrorResponseDTO errorResponseDTO = new ErrorResponseDTO(
                 ex.getMessage(),
-                "he provided ID could not be located for the Individual account. Please verify the value and try again.",
+                "Não foi possível localizar o ID fornecido para a conta da Entidade. Verifique o valor e tente novamente.",
                 LocalDateTime.now()
         );
         return errorResponseDTO;
@@ -30,7 +30,7 @@ public class GlobalHandlerException {
     public ErrorResponseDTO LegalEntityNotFoundException(LegalEntityNotFoundException ex){
         ErrorResponseDTO errorResponseDTO = new ErrorResponseDTO(
                 ex.getMessage(),
-                "he provided ID could not be located for the Entity account. Please verify the value and try again.",
+                "Não foi possível localizar o ID fornecido para a conta da Entidade. Verifique o valor e tente novamente.",
                 LocalDateTime.now()
         );
         return errorResponseDTO;
@@ -41,19 +41,19 @@ public class GlobalHandlerException {
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ErrorResponseDTO handleDataIntegrity(DataIntegrityViolationException ex) {
 
-        String detailMessage = "Data is invalid or already exists.";
+        String detailMessage = "Os dados são inválidos ou já existem.";
 
         //Se o cpf ou CNPJ estiver duplicado, o Banco de dados devolverá uma mensagem que contem a palavra CPF ou CNPJ
         //criamos um metodo para ler esta mensagem do BD e alterar nosso erro se perceber que o erro se trata de CPF ou CNPJ
         String causeMessage = ex.getMostSpecificCause().getMessage().toLowerCase();
         if (causeMessage.contains("cpf")) {
-            detailMessage = "The provided CPF already exists.";
+            detailMessage = "O CPF fornecido já existe.";
         } else if (causeMessage.contains("cnpj")) {
-            detailMessage = "The provided CNPJ already exists.";
+            detailMessage = "O CNPJ fornecido já existe.";
         }
 
         return new ErrorResponseDTO(
-                "Conflict",
+                "Conflito: ",
                 detailMessage,
                 LocalDateTime.now()
         );
@@ -66,7 +66,7 @@ public class GlobalHandlerException {
         ex.getStackTrace();
         return new ErrorResponseDTO(
                 ex.getMessage(),
-                "The sender's account does not have sufficient funds to complete the transaction.",
+                "A conta do remetente não tem fundos suficientes para concluir a transação.",
                 LocalDateTime.now()
         );
     }
@@ -77,7 +77,7 @@ public class GlobalHandlerException {
     public ErrorResponseDTO handleInvalidAmount(InvalidTransactionAmountException ex) {
         return new ErrorResponseDTO(
                 ex.getMessage(),
-                "The provided transaction amount is invalid. Please check and try again.",
+                "O valor da transação informado é inválido. Verifique e tente novamente.",
                 LocalDateTime.now()
         );
     }
@@ -88,7 +88,7 @@ public class GlobalHandlerException {
     public ErrorResponseDTO handleUserNotFound(UserNotFoundException ex) {
         return new ErrorResponseDTO(
                 ex.getMessage(),
-                "The provided user ID was not found. Please verify and try again.",
+                "O ID de usuário fornecido não foi encontrado. Verifique e tente novamente.",
                 LocalDateTime.now()
         );
     }

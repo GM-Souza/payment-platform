@@ -31,7 +31,7 @@ public class LegalEntityService {
     //Metodo para listar entidade por id
     public LegalEntityResponseDTO findById(UUID id){
         LegalEntityModel entity = legalEntityRepository.findById(id).orElseThrow(() ->
-                new EntityNotFoundException("Entity Not Found"));
+                new EntityNotFoundException("Usuário não encontrado"));
         return  LegalEntityResponseDTO.fromLegalEntity(entity);
     }
 
@@ -49,7 +49,7 @@ public class LegalEntityService {
     //Metodo para alterar a entidade por id
     public LegalEntityResponseDTO alter(UUID id, LegalEntityRequestDTO dto){
         LegalEntityModel updateEntity = legalEntityRepository.findById(id).orElseThrow(()->
-                new LegalEntityNotFoundException("Entity Not Found"));
+                new LegalEntityNotFoundException("Usuário não encontrado"));
         updateEntity.setLegalName(dto.legalName());
         updateEntity.setCnpj(dto.cnpj());
         updateEntity.setEmail(dto.email());
