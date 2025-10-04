@@ -33,21 +33,23 @@ public class TransactionController {
         return new ResponseEntity<>(newTransaction, HttpStatus.OK);
     }
 
-    // GERAR COBRANÇA PIX
-
+    //Endpoint para gerar cobrança pix
     @PostMapping("/pix")
     public ResponseEntity<PixReceiverResponseDTO> createPixTransaction(@RequestBody PixReceiverRequestDTO dto) throws Exception {
         PixPaymentDetail pixDetail = transactionService.gerarCobrancaPix(dto);
 
-        PixReceiverResponseDTO response = new PixReceiverResponseDTO(pixDetail.getTransaction().getId(), pixDetail.getTransaction().getStatus().toString(), // PENDING
-                pixDetail.getQrCodeBase64(), pixDetail.getQrCodeCopyPaste());
+        //Montando o response DTO
+        PixReceiverResponseDTO response = new PixReceiverResponseDTO(
+                pixDetail.getTransaction().getId(),
+                pixDetail.getTransaction().getStatus().toString(), // PENDING
+                pixDetail.getQrCodeBase64(), pixDetail.getQrCodeCopyPaste()
+        );
 
         return ResponseEntity.ok(response);
     }
 
 
-    // PAGAR COBRANÇA PIX
-
+    //Endpoint para pagar via pix
     @PostMapping("/pagar-copy-paste")
     public ResponseEntity<PixSenderResponseDTO> pagarViaPixCopyPaste(@RequestBody PixSenderRequestDTO request) throws Exception {
         TransactionModel transacao = transactionService.pagarViaPixCopyPaste(request);

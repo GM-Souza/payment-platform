@@ -45,7 +45,6 @@ public class IndividualService {
         return IndividualResponseDTO.fromIndividual(ind);
     }
 
-
     //Metodo para alterar a entidade por id
     public IndividualResponseDTO alter(UUID id, IndividualRequestDTO dto){
         IndividualModel updateIndividual = individualRepository.findById(id).orElseThrow(()->

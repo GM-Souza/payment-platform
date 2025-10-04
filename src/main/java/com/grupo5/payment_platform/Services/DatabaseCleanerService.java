@@ -8,7 +8,6 @@ import org.springframework.stereotype.Service;
 public class DatabaseCleanerService {
 
     private final PixPaymentDetailRepository pixRepo;
-  //  private final PaymentDetailRepository paymentRepo;
     private final TransactionRepository transRepo;
     private final IndividualRepository indivRepo;
     private final LegalEntityRepository legalRepo;
@@ -16,7 +15,6 @@ public class DatabaseCleanerService {
 
     public DatabaseCleanerService(PixPaymentDetailRepository pixRepo,
                                   TransactionRepository transRepo,
-                                  //    PaymentDetailRepository paymentRepo,
                                   IndividualRepository indivRepo,
                                   LegalEntityRepository legalRepo,
                                   UserRepository usersRepo) {
@@ -29,9 +27,7 @@ public class DatabaseCleanerService {
 
     @Transactional
     public void limparTudo() {
-        // Ordem correta: filhos -> pais
         pixRepo.deleteAllInBatch();
-    //    paymentRepo.deleteAllInBatch();
         transRepo.deleteAllInBatch();
         indivRepo.deleteAllInBatch();
         legalRepo.deleteAllInBatch();

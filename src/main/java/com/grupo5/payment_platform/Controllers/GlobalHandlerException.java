@@ -13,6 +13,7 @@ import java.time.LocalDateTime;
 @RestControllerAdvice
 public class GlobalHandlerException {
 
+    //Tratamento de exceção para quando o ID do usuário não for encontrado no banco de dados
     @ExceptionHandler(IndividualNotFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public ErrorResponseDTO IndividualNotFoundException(IndividualNotFoundException ex){
@@ -35,6 +36,7 @@ public class GlobalHandlerException {
         return errorResponseDTO;
     }
 
+    //Tratamento de exceção para quando o CPF ou CNPJ for duplicado no banco de dados
     @ExceptionHandler(DataIntegrityViolationException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ErrorResponseDTO handleDataIntegrity(DataIntegrityViolationException ex) {
@@ -57,6 +59,7 @@ public class GlobalHandlerException {
         );
     }
 
+    //Tratamento de exceção para quando o saldo for insuficiente
     @ExceptionHandler(InsufficientBalanceException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ErrorResponseDTO handleInsufficientBalance(InsufficientBalanceException ex) {
@@ -68,6 +71,7 @@ public class GlobalHandlerException {
         );
     }
 
+    //Tratamento de exceção para quando o valor da transação for inválido
     @ExceptionHandler(InvalidTransactionAmountException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ErrorResponseDTO handleInvalidAmount(InvalidTransactionAmountException ex) {
@@ -78,6 +82,7 @@ public class GlobalHandlerException {
         );
     }
 
+    //Tratamento de exceção para quando o ID do usuário não for encontrado no banco de dados
     @ExceptionHandler(UserNotFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public ErrorResponseDTO handleUserNotFound(UserNotFoundException ex) {

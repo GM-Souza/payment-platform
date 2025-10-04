@@ -49,7 +49,7 @@ public class TransactionModel {
     @Column(name = "mp_payment_id")
     private Long mercadoPagoPaymentId;
 
-    @OneToOne(mappedBy = "transaction", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @OneToOne(mappedBy = "transaction", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private PaymentDetail paymentDetail;
 
 

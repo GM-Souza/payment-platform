@@ -32,12 +32,14 @@ public class TransactionService {
     private PixPaymentDetailRepository pixPaymentDetailRepository;
 
 
+    // Injeção de dependências via construtor
     public TransactionService(TransactionRepository transactionRepository, UserService userService, PixPaymentDetailRepository pixPaymentDetailRepository) {
         this.transactionRepository = transactionRepository;
         this.userService = userService;
         this.pixPaymentDetailRepository = pixPaymentDetailRepository;
     }
 
+    // CRIAR TRANSAÇÃO SIMPLES
     public TransactionModel createTransaction(TransactionRequestDTO dto){
 
         UserModel sender = userService.findById(dto.senderId());
@@ -76,12 +78,14 @@ public class TransactionService {
     }
 
     // GERAR COBRANÇA PIX
-
     @Transactional
     public PixPaymentDetail gerarCobrancaPix(PixReceiverRequestDTO detail) throws Exception {
+
+        // Verifica se o receiver existe
         UserModel receiver = userService.findById(detail.receiverId());
         BigDecimal amount = detail.amount();
 
+        // Valida o valor
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new InvalidTransactionAmountException("O valor deve ser maior que zero.");
         }
@@ -94,7 +98,10 @@ public class TransactionService {
                 .payer(PaymentPayerRequest.builder().email(receiver.getEmail()).build())
                 .build();
 
+        // Inicializa o cliente do MercadoPago
         PaymentClient client = new PaymentClient();
+
+        // Cria o pagamento
         Payment paymentResponse = client.create(createRequest);
 
         // Cria transação PENDING (sem pagador ainda)
@@ -115,6 +122,7 @@ public class TransactionService {
         pixDetail.setAmount(amount);
         pixDetail.setTransaction(transaction);
 
+        // Salva o PixPaymentDetail no banco de dados
         pixPaymentDetailRepository.save(pixDetail);
 
         // Atualiza a transação com o PixDetail
@@ -125,25 +133,34 @@ public class TransactionService {
     }
 
     // PAGAR COBRANÇA PIX
-
     @Transactional
     public TransactionModel pagarViaPixCopyPaste(PixSenderRequestDTO dto){
+
+        // Busca o detalhe da cobrança pelo código Pix
         PixPaymentDetail pixDetail = pixPaymentDetailRepository.findByQrCodeCopyPaste(dto.qrCodeCopyPaste());
+
+        // Pega o ID do pagamento no MercadoPago antes de verificar se pixDetail é nulo
         Long mercadoPagoPaymentId = pixDetail.getMercadoPagoPaymentId();
+
+        // Verifica se o detalhe da cobrança existe
         if (pixDetail == null) {
             throw new PixQrCodeNotFoundException("Cobrança Pix não encontrada.");
         }
 
         TransactionModel transaction = pixDetail.getTransaction();
 
+        // Verifica se a transação está pendente
         if (!TransactionStatus.PENDING.equals(transaction.getStatus())) {
             throw new InvalidTransactionAmountException("Essa cobrança já foi paga ou cancelada.");
         }
 
         UserModel sender = userService.findById(dto.senderId());
+
+        // Verifica se o pagador existe
         if (sender == null) {
             throw new UserNotFoundException("Pagador não encontrado.");
         }
+
 
         UserModel receiver = transaction.getReceiver();
         BigDecimal amount = pixDetail.getAmount();
@@ -156,6 +173,7 @@ public class TransactionService {
         sender.setBalance(sender.getBalance().subtract(amount));
         receiver.setBalance(receiver.getBalance().add(amount));
 
+        // Atualiza a transação
         transaction.setSender(sender);
         transaction.setStatus(TransactionStatus.APPROVED);// aprovado quando pago
         transaction.setFinalDate(LocalDateTime.now());
