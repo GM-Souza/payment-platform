@@ -1,7 +1,7 @@
 package com.grupo5.payment_platform.Services.UsersServices;
 
-import com.grupo5.payment_platform.DTOs.LegalEntityDTOs.LegalEntityRequestDTO;
-import com.grupo5.payment_platform.DTOs.LegalEntityDTOs.LegalEntityResponseDTO;
+import com.grupo5.payment_platform.DTOs.AuthDTOs.LegalEntityRequestDTO;
+import com.grupo5.payment_platform.DTOs.AuthDTOs.LegalEntityResponseDTO;
 import com.grupo5.payment_platform.Exceptions.LegalEntityNotFoundException;
 import com.grupo5.payment_platform.Models.Users.LegalEntityModel;
 import com.grupo5.payment_platform.Repositories.LegalEntityRepository;

@@ -1,7 +1,7 @@
 package com.grupo5.payment_platform.Services.UsersServices;
 
-import com.grupo5.payment_platform.DTOs.IndivualDTOs.IndividualRequestDTO;
-import com.grupo5.payment_platform.DTOs.IndivualDTOs.IndividualResponseDTO;
+import com.grupo5.payment_platform.DTOs.AuthDTOs.IndividualRequestDTO;
+import com.grupo5.payment_platform.DTOs.AuthDTOs.IndividualResponseDTO;
 import com.grupo5.payment_platform.Exceptions.IndividualNotFoundException;
 import com.grupo5.payment_platform.Models.Users.IndividualModel;
 import com.grupo5.payment_platform.Repositories.IndividualRepository;
