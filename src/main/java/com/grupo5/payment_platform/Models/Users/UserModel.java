@@ -25,6 +25,9 @@ public class UserModel {
     @Column(name = "email",nullable = false,unique = true)
     private String email;
 
+    @Column(name = "password",nullable = false)
+    private String password;
+
     @Column(name = "balance")
     private BigDecimal balance = BigDecimal.ZERO;
 
