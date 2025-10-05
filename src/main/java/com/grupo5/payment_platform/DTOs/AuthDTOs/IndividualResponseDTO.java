@@ -1,4 +1,4 @@
-package com.grupo5.payment_platform.DTOs.IndivualDTOs;
+package com.grupo5.payment_platform.DTOs.AuthDTOs;
 
 import com.grupo5.payment_platform.Models.Users.IndividualModel;
 

@@ -1,7 +1,7 @@
 package com.grupo5.payment_platform.Controllers;
 
-import com.grupo5.payment_platform.DTOs.IndivualDTOs.IndividualRequestDTO;
-import com.grupo5.payment_platform.DTOs.IndivualDTOs.IndividualResponseDTO;
+import com.grupo5.payment_platform.DTOs.AuthDTOs.IndividualRequestDTO;
+import com.grupo5.payment_platform.DTOs.AuthDTOs.IndividualResponseDTO;
 import com.grupo5.payment_platform.Services.UsersServices.IndividualService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

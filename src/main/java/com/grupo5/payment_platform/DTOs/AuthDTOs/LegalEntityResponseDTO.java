@@ -1,4 +1,4 @@
-package com.grupo5.payment_platform.DTOs.LegalEntityDTOs;
+package com.grupo5.payment_platform.DTOs.AuthDTOs;
 
 import com.grupo5.payment_platform.Models.Users.LegalEntityModel;
 
