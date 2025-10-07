@@ -13,6 +13,8 @@ import java.math.BigDecimal;
 public class PixPaymentDetail extends PaymentDetail {
 
     private Long mercadoPagoPaymentId; // ID do pagamento gerado pelo MercadoPago
+
+    @Column(name = "amount", nullable = false)
     private BigDecimal amount;
     
     @Column(name = "qr_code_base64", columnDefinition = "TEXT")

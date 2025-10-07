@@ -33,6 +33,18 @@ public class TransactionController {
         return new ResponseEntity<>(newTransaction, HttpStatus.OK);
     }
 
+    @PostMapping("/saque")
+    public ResponseEntity<TransactionModel> createDeposit(@RequestBody PixReceiverRequestDTO dto) {
+        TransactionModel newTransaction = transactionService.withdrawFunds(dto);
+        return new ResponseEntity<>(newTransaction, HttpStatus.OK);
+    }
+
+    @PostMapping("/deposito")
+    public ResponseEntity<TransactionModel> createWithdraw(@RequestBody PixReceiverRequestDTO dto) {
+        TransactionModel newTransaction = transactionService.depositFunds(dto);
+        return new ResponseEntity<>(newTransaction, HttpStatus.OK);
+    }
+
     //Endpoint para gerar cobrança pix
     @PostMapping("/pix")
     public ResponseEntity<PixReceiverResponseDTO> createPixTransaction(@RequestBody PixReceiverRequestDTO dto) throws Exception {
@@ -48,10 +60,9 @@ public class TransactionController {
         return ResponseEntity.ok(response);
     }
 
-
     //Endpoint para pagar via pix
     @PostMapping("/pagar-copy-paste")
-    public ResponseEntity<PixSenderResponseDTO> pagarViaPixCopyPaste(@RequestBody PixSenderRequestDTO request) throws Exception {
+    public ResponseEntity<PixSenderResponseDTO> pagarViaPixCopyPaste(@RequestBody PixSenderRequestDTO request){
         TransactionModel transacao = transactionService.pagarViaPixCopyPaste(request);
 
         PixSenderResponseDTO response = new PixSenderResponseDTO(transacao.getId(), transacao.getStatus().toString(), transacao.getAmount());
