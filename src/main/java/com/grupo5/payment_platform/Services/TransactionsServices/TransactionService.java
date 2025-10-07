@@ -28,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 
 @Service
@@ -262,4 +263,15 @@ public class TransactionService {
             transactionRepository.save(transacao);
         }
     }
+
+    public List<String> listAllTransactions(UUID userId){
+        List<TransactionModel> transactions = transactionRepository.listTransactionsBySenderIdOrReceiverId(userId, userId);
+        return transactions.stream()
+                .map(tx -> {
+                    String sinal = tx.getSender() != null && tx.getSender().getId().equals(userId) ? "-" : "+";
+                    return sinal + " " + tx.getAmount() + " | " + tx.getPaymentType();
+                })
+                .toList();
+    }
+
 }

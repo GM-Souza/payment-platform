@@ -11,10 +11,10 @@ import com.grupo5.payment_platform.Obsolete.TransactionRequestDTO;
 import com.grupo5.payment_platform.Services.TransactionsServices.TransactionService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/transactions")
@@ -68,6 +68,12 @@ public class TransactionController {
         PixSenderResponseDTO response = new PixSenderResponseDTO(transacao.getId(), transacao.getStatus().toString(), transacao.getAmount());
 
         return ResponseEntity.ok(response);
+    }
+    //Endpoint para listar todas as transações de um usuário
+    @GetMapping("/user/{userId}")
+    public ResponseEntity<List<String>> listarTransacoes(@PathVariable UUID userId) {
+        List<String> resumo = transactionService.listAllTransactions(userId);
+        return ResponseEntity.ok(resumo);
     }
 
 }

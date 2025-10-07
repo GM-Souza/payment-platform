@@ -2,6 +2,7 @@ package com.grupo5.payment_platform.Repositories;
 
 import com.grupo5.payment_platform.Enums.TransactionStatus;
 import com.grupo5.payment_platform.Models.Payments.TransactionModel;
+import com.grupo5.payment_platform.Models.Users.UserModel;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 
@@ -10,5 +11,10 @@ import java.util.List;
 import java.util.UUID;
 
 public interface TransactionRepository extends JpaRepository<TransactionModel, UUID> {
+
     List<TransactionModel> findByStatusAndCreateDateBefore(TransactionStatus transactionStatus, LocalDateTime limite);
+
+    //Metodo para listar todas as transações de um usuário, seja como remetente ou destinatário
+    List<TransactionModel> listTransactionsBySenderIdOrReceiverId(UUID sender,UUID receiver);
+
 }
