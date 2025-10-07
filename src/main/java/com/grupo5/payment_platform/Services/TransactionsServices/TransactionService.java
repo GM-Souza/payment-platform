@@ -13,6 +13,7 @@ import com.grupo5.payment_platform.Models.Users.UserModel;
 import com.grupo5.payment_platform.Models.Payments.PixPaymentDetail;
 import com.grupo5.payment_platform.Repositories.PixPaymentDetailRepository;
 import com.grupo5.payment_platform.Repositories.TransactionRepository;
+import com.grupo5.payment_platform.Repositories.UserRepository;
 import com.grupo5.payment_platform.Services.UsersServices.UserService;
 import com.mercadopago.client.payment.PaymentClient;
 import com.mercadopago.client.payment.PaymentCreateRequest;
@@ -28,19 +29,82 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
+
 @Service
 public class TransactionService {
 
     private TransactionRepository transactionRepository;
     private UserService userService;
+    private UserRepository userRepository;
     private PixPaymentDetailRepository pixPaymentDetailRepository;
 
 
     // Injeção de dependências via construtor
-    public TransactionService(TransactionRepository transactionRepository, UserService userService, PixPaymentDetailRepository pixPaymentDetailRepository) {
+    public TransactionService(TransactionRepository transactionRepository,
+                              UserService userService,
+                              PixPaymentDetailRepository pixPaymentDetailRepository,
+                              UserRepository userRepository) {
+
         this.transactionRepository = transactionRepository;
         this.userService = userService;
         this.pixPaymentDetailRepository = pixPaymentDetailRepository;
+        this.userRepository = userRepository;
+    }
+
+
+    public TransactionModel depositFunds(PixReceiverRequestDTO dto) {
+        UserModel user = userService.findById(dto.receiverId());
+        if (user == null) {
+            throw new UserNotFoundException("Usuário não encontrado");
+        }
+        if (dto.amount() == null || dto.amount().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new InvalidTransactionAmountException("O valor do depósito deve ser maior que zero.");
+        }
+
+        user.setBalance(user.getBalance().add(dto.amount()));
+        userRepository.save(user); // Salva o usuário com saldo atualizado
+
+        TransactionModel depositTransaction = new TransactionModel();
+        depositTransaction.setSender(null); // Depósito não tem remetente
+        depositTransaction.setReceiver(user);
+        depositTransaction.setAmount(dto.amount());
+        depositTransaction.setCreateDate(LocalDateTime.now());
+        depositTransaction.setFinalDate(LocalDateTime.now());
+        depositTransaction.setStatus(TransactionStatus.APPROVED);
+        depositTransaction.setPaymentType("Deposit");
+
+        transactionRepository.save(depositTransaction);
+
+        return depositTransaction;
+    }
+
+    public TransactionModel withdrawFunds(PixReceiverRequestDTO dto) {
+        UserModel user = userService.findById(dto.receiverId());
+        if (user == null) {
+            throw new UserNotFoundException("Usuário não encontrado");
+        }
+        if (dto.amount() == null || dto.amount().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new InvalidTransactionAmountException("O valor do saque deve ser maior que zero.");
+        }
+        if (user.getBalance().compareTo(dto.amount()) < 0) {
+            throw new InsufficientBalanceException("Saldo insuficiente para saque.");
+        }
+
+        user.setBalance(user.getBalance().subtract(dto.amount()));
+        userRepository.save(user); // Service delega para o Repository
+
+        TransactionModel withdrawTransaction = new TransactionModel();
+        withdrawTransaction.setSender(user);
+        withdrawTransaction.setReceiver(null); // Saque não tem destinatário
+        withdrawTransaction.setAmount(dto.amount());
+        withdrawTransaction.setCreateDate(LocalDateTime.now());
+        withdrawTransaction.setFinalDate(LocalDateTime.now());
+        withdrawTransaction.setStatus(TransactionStatus.APPROVED);
+        withdrawTransaction.setPaymentType("Withdraw");
+
+        transactionRepository.save(withdrawTransaction);
+
+        return withdrawTransaction;
     }
 
     // CRIAR TRANSAÇÃO SIMPLES
@@ -76,6 +140,7 @@ public class TransactionService {
         newTransaction.setAmount(dto.amount());
         newTransaction.setCreateDate(LocalDateTime.now());
         newTransaction.setFinalDate(null);
+        newTransaction.setPaymentType("Pix");
         transactionRepository.save(newTransaction);
 
         return newTransaction;
