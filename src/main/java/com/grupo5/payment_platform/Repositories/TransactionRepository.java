@@ -15,6 +15,6 @@ public interface TransactionRepository extends JpaRepository<TransactionModel, U
     List<TransactionModel> findByStatusAndCreateDateBefore(TransactionStatus transactionStatus, LocalDateTime limite);
 
     //Metodo para listar todas as transações de um usuário, seja como remetente ou destinatário
-    List<TransactionModel> listTransactionsBySenderIdOrReceiverId(UUID sender,UUID receiver);
+    List<TransactionModel> findBySenderIdOrReceiverId(UUID sender,UUID receiver);
 
 }

@@ -265,7 +265,7 @@ public class TransactionService {
     }
 
     public List<String> listAllTransactions(UUID userId){
-        List<TransactionModel> transactions = transactionRepository.listTransactionsBySenderIdOrReceiverId(userId, userId);
+        List<TransactionModel> transactions = transactionRepository.findBySenderIdOrReceiverId(userId, userId);
         return transactions.stream()
                 .map(tx -> {
                     String sinal = tx.getSender() != null && tx.getSender().getId().equals(userId) ? "-" : "+";
