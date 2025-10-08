@@ -3,8 +3,8 @@ package com.grupo5.payment_platform.Services.BoletoServices;
 import com.grupo5.payment_platform.DTOs.BoletosDTOs.BoletoRequestDTO;
 import com.grupo5.payment_platform.Enums.TransactionStatus;
 import com.grupo5.payment_platform.Exceptions.UserLoginNotFoundException;
+import com.grupo5.payment_platform.Models.Payments.BoletoModel;
 import com.grupo5.payment_platform.Models.Payments.BoletoPaymentDetail;
-import com.grupo5.payment_platform.Models.Payments.TransactionModel;
 import com.grupo5.payment_platform.Models.Users.IndividualModel;
 import com.grupo5.payment_platform.Models.Users.LegalEntityModel;
 import com.grupo5.payment_platform.Models.Users.UserModel;
@@ -40,37 +40,30 @@ public class BoletoService {
     private final UserRepository userRepository;
     private final TransactionRepository transactionRepository;
 
-    // Construtor corrigido: REMOVIDO o parâmetro BoletoPaymentDetail (não é injetável!)
     public BoletoService(BoletoRepository boletoRepository, UserRepository userRepository, TransactionRepository transactionRepository) {
         this.boletoRepository = boletoRepository;
         this.userRepository = userRepository;
         this.transactionRepository = transactionRepository;
     }
 
-    //a intenção com este codigo é receber o email do front e verificar se o Receiver existe.
-    //também iremos pedir o email do Sender(ele terá que ser um cliente da plataforma).
     public byte[] generateBoletoPdf(BoletoRequestDTO dto) throws Exception {
 
-        UserModel userModelReceiver = userRepository.findByEmail(dto.emailSender()).orElseThrow(()->
+        UserModel userModelReceiver = userRepository.findByEmail(dto.emailSender()).orElseThrow(() ->
                 new UserLoginNotFoundException("Sender's email not found"));
 
-        UserModel userModelSender = userRepository.findByEmail(dto.emailReceiver()).orElseThrow(()->
+        UserModel userModelSender = userRepository.findByEmail(dto.emailReceiver()).orElseThrow(() ->
                 new UserLoginNotFoundException("Receiver's email not found"));
 
-
-        // Gerar dados aleatórios e dinâmicos
         Random random = new Random();
-        String numeroDocumento = String.format("%06d", random.nextInt(1000000)); // Número aleatório de 6 dígitos
-        String nossoNumero = String.format("01/%05d/1", random.nextInt(100000)); // Nosso número aleatório no formato exemplo
+        String numeroDocumento = String.format("%06d", random.nextInt(1000000));
+        String nossoNumero = String.format("01/%05d/1", random.nextInt(100000));
 
         LocalDate now = LocalDate.now();
         String dataEmissao = now.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
-        String vencimento = now.plusDays(30).format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+        String vencimentoStr = now.plusDays(30).format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
 
-        // --- Dados de exemplo atualizados para Agibank ---
         String bancoNome = "AGIBANK";
         String codigoCompensacao = "121";
-        // Linha digitável fictícia atualizada com partes aleatórias
         String linhaDigitavel = String.format("1219%s.01010 01010.01010 10000.0000%s 1 01010000000%s",
                 String.format("%02d", random.nextInt(100)),
                 numeroDocumento.charAt(0),
@@ -85,7 +78,6 @@ public class BoletoService {
         String especieMoeda = "R$";
         String agenciaCodigo = "0001-0 / 01010-1";
 
-        //convertendo tipo bigdecimal em String para jogar no pdf o valor como string...
         NumberFormat formatoBR = NumberFormat.getCurrencyInstance(new Locale("pt", "BR"));
         String valorSemSimbolo = formatoBR.format(dto.amount()).replace("R$", "").trim();
         String valorDocumento = valorSemSimbolo;
@@ -104,68 +96,43 @@ public class BoletoService {
                 "1% ao mês após o 1º dia de atraso."
         };
 
-       //criando um cast, para poder pegar o nome do Receiver
-        String nameReceiver = null;
-        String documentreceiver = null;
-        if (userModelReceiver instanceof IndividualModel) {
-            IndividualModel individualReceiver = (IndividualModel) userModelReceiver;
+        String nameReceiver;
+        String documentReceiver;
+        if (userModelReceiver instanceof IndividualModel individualReceiver) {
             nameReceiver = individualReceiver.getFullname();
-            documentreceiver = individualReceiver.getCpf();
-        } else if (userModelReceiver instanceof LegalEntityModel){
-            LegalEntityModel legalReceiver= (LegalEntityModel) userModelReceiver;
+            documentReceiver = individualReceiver.getCpf();
+        } else if (userModelReceiver instanceof LegalEntityModel legalReceiver) {
             nameReceiver = legalReceiver.getLegalName();
-            documentreceiver = legalReceiver.getCnpj();
-        }else{
+            documentReceiver = legalReceiver.getCnpj();
+        } else {
             throw new RuntimeException("Receiver not found!");
         }
 
-
-        String beneficiario = nameReceiver;
-        String cnpjBeneficiario = documentreceiver;
-
-        //Por enquanto sem endereço
-        //String enderecoBeneficiario = "Rua Teste, 987 - Centro - Aracaju/SE - CEP: 49000-000";
-
-        //criando um cast, para poder pegar o nome do Sender
-        String nameSender = null;
-        String documentSender = null;
-        if (userModelSender instanceof IndividualModel) {
-            IndividualModel individualSender = (IndividualModel) userModelSender;
+        String nameSender;
+        String documentSender;
+        if (userModelSender instanceof IndividualModel individualSender) {
             nameSender = individualSender.getFullname();
             documentSender = individualSender.getCpf();
-        } else if (userModelSender instanceof LegalEntityModel){
-            LegalEntityModel legalSender = (LegalEntityModel) userModelSender;
+        } else if (userModelSender instanceof LegalEntityModel legalSender) {
             nameSender = legalSender.getLegalName();
             documentSender = legalSender.getCnpj();
-        }else{
+        } else {
             throw new RuntimeException("Sender not found!");
         }
 
-        String sacado = nameSender;
-        String cpfSacado = documentSender;
-
-        //Por enquanto sem endereço
-        //String enderecoSacado = "Rua Exemplo, 123 - Bairro Centro - Maringá/PR - CEP: 87098-765";
-
-        // --- Gerar código de barras (ITF para boleto brasileiro) ---
         byte[] barcodePng = gerarBarcodePng(codigoBarras, 400, 40);
-
-        // --- Gerar QR Code PIX (exemplo fictício) ---
         String pixContent = "00020101021226130014BR.GOV.BCB.PIX0136805a5b0a0c0f0g0h0111TESTE5204000053039865802BR5925Empresa Exemplo6009Sao Paulo62140510sacado@example.com6304A101";
         byte[] qrPng = gerarQRCodePng(pixContent, 120, 120);
 
-        // --- Carregar logo do Agibank ---
         URL logoUrl = new URL("https://www.revistafatorbrasil.com.br/wp-content/uploads/2023/10/logo-agibanck.jpg");
         Image logoImage = Image.getInstance(logoUrl);
         logoImage.scaleToFit(180f, 60f);
 
-        // --- Criar PDF ---
         ByteArrayOutputStream pdfStream = new ByteArrayOutputStream();
         Document document = new Document(PageSize.A4, 20, 20, 20, 20);
         PdfWriter.getInstance(document, pdfStream);
         document.open();
 
-        // --- Fontes ---
         Font fontTitulo = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 14);
         Font fontBold = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10);
         Font fontNormal = FontFactory.getFont(FontFactory.HELVETICA, 9);
@@ -257,7 +224,7 @@ public class BoletoService {
         Paragraph vencP = new Paragraph();
         vencP.add(new Chunk("Vencimento", fontSmall));
         vencP.add(Chunk.NEWLINE);
-        vencP.add(new Chunk(vencimento, fontNormal));
+        vencP.add(new Chunk(vencimentoStr, fontNormal));
         vencFull.addElement(vencP);
         upperFields.addCell(vencFull);
 
@@ -370,8 +337,8 @@ public class BoletoService {
         Paragraph benefTitle = new Paragraph("Beneficiário", fontBold);
         benefTitle.setAlignment(Element.ALIGN_CENTER);
         benefCell.addElement(benefTitle);
-        benefCell.addElement(new Paragraph(beneficiario, fontNormal));
-        benefCell.addElement(new Paragraph("CNPJ: " + cnpjBeneficiario, fontSmall));
+        benefCell.addElement(new Paragraph(nameReceiver, fontNormal));
+        benefCell.addElement(new Paragraph("CNPJ: " + documentReceiver, fontSmall));
         //por enquanto, nao teremos endereços..
         //benefCell.addElement(new Paragraph(enderecoBeneficiario, fontSmall));
         instrBenefTable.addCell(benefCell);
@@ -390,8 +357,8 @@ public class BoletoService {
         Paragraph sacadoTitle = new Paragraph("Sacado", fontBold);
         sacadoTitle.setAlignment(Element.ALIGN_CENTER);
         sacadoCell.addElement(sacadoTitle);
-        sacadoCell.addElement(new Paragraph(sacado, fontNormal));
-        sacadoCell.addElement(new Paragraph("CPF: " + cpfSacado, fontSmall));
+        sacadoCell.addElement(new Paragraph(nameSender, fontNormal));
+        sacadoCell.addElement(new Paragraph("CPF: " + documentSender, fontSmall));
         //por enquanto, nao teremos endereços..
         //sacadoCell.addElement(new Paragraph(enderecoSacado, fontSmall));
         sacadoTable.addCell(sacadoCell);
@@ -433,47 +400,28 @@ public class BoletoService {
 
         document.close();
 
-        // Salvar na tabela de transação as informações
-        TransactionModel transaction = new TransactionModel();
-        transaction.setSender(userModelSender);
-        transaction.setReceiver(userModelReceiver);
-        transaction.setAmount(dto.amount());
-        transaction.setCreateDate(LocalDateTime.now());
-        transaction.setFinalDate(null);
-        transaction.setStatus(TransactionStatus.PENDING);
-        transaction.setPaymentType("BOLETO");
+        // Criar transação Boleto
+        BoletoModel boletoTx = new BoletoModel();
+        boletoTx.setReceiver(userModelReceiver);
+        boletoTx.setSender(userModelSender);
+        boletoTx.setAmount(dto.amount());
+        boletoTx.setDate(LocalDateTime.now());
+        boletoTx.setStatus(TransactionStatus.PENDING);
+        boletoTx.setPaymentType("BOLETO");
+        boletoTx.setDueDate(LocalDate.parse(vencimentoStr, DateTimeFormatter.ofPattern("dd/MM/yyyy")));
+        // Preenche o campo 'user' da tabela base para não ficar NULL (seguindo padrão Pix: inicialmente o beneficiário)
+        boletoTx.setUser(userModelReceiver);
+        BoletoPaymentDetail detail = new BoletoPaymentDetail();
+        detail.setBoletoCode(linhaDigitavel);
+        detail.setDocumentCode(numeroDocumento);
+        detail.setOurNumber(nossoNumero);
+        boletoTx.attachDetail(detail);
 
-
-        //salvar na tabela de Boleto as informações
-        BoletoPaymentDetail boletoPaymentDetail = new BoletoPaymentDetail();
-
-        boletoPaymentDetail.setBoletoCode(linhaDigitavel);
-        boletoPaymentDetail.setDocumentCode(numeroDocumento);
-
-        boletoPaymentDetail.setOurNumber(nossoNumero);
-
-        //transformando o vencimento que está em String para LocalDate
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
-        LocalDate venc = LocalDate.parse(vencimento, formatter);
-        boletoPaymentDetail.setDueDate(venc);
-        boletoPaymentDetail.setTransaction(transaction);
-
-
-        //mudei aqui
-       // transaction.setPaymentDetail(boletoPaymentDetail);
-        transaction = transactionRepository.save(transaction);
-
-        // Salva o BoletoPaymentDetails no banco de dados
-        boletoRepository.save(boletoPaymentDetail);
-
-        // Atualiza a transação com o boletoPaymentDetail
-        transaction.setPaymentDetail(boletoPaymentDetail);
-        transactionRepository.save(transaction);
+        transactionRepository.save(boletoTx); // cascade salva detail
 
         return pdfStream.toByteArray();
     }
 
-    // Método para criar células aprimorado com alinhamento
     private PdfPCell criarCelula(String texto, Font fonte, boolean cabecalho, int alignment) {
         PdfPCell c = new PdfPCell(new Phrase(texto, fonte));
         c.setHorizontalAlignment(alignment);
@@ -484,7 +432,6 @@ public class BoletoService {
         return c;
     }
 
-    // Gerar código de barras ITF
     private byte[] gerarBarcodePng(String content, int width, int height) throws Exception {
         Map<EncodeHintType, Object> hints = new HashMap<>();
         hints.put(EncodeHintType.MARGIN, 1);
@@ -494,19 +441,12 @@ public class BoletoService {
         return pngStream.toByteArray();
     }
 
-    // Gerar QR Code
     private byte[] gerarQRCodePng(String content, int width, int height) throws Exception {
         Map<EncodeHintType, Object> hints = new HashMap<>();
         hints.put(EncodeHintType.MARGIN, 1);
         BitMatrix bitMatrix = new MultiFormatWriter().encode(content, BarcodeFormat.QR_CODE, width, height, hints);
         ByteArrayOutputStream pngStream = new ByteArrayOutputStream();
         MatrixToImageWriter.writeToStream(bitMatrix, "PNG", pngStream);
-
-
         return pngStream.toByteArray();
     }
 }
-
-
-
-
