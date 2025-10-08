@@ -2,25 +2,40 @@ package com.grupo5.payment_platform.Controllers;
 
 
 import com.grupo5.payment_platform.DTOs.PixDTOs.*;
+import com.grupo5.payment_platform.DTOs.BoletosDTOs.BoletoRequestDTO;
+import com.grupo5.payment_platform.DTOs.BoletosDTOs.PagBoletoRequestDTO;
+import com.grupo5.payment_platform.DTOs.BoletosDTOs.PagBoletoResponseDTO;
+import com.grupo5.payment_platform.DTOs.PixDTOs.PixReceiverRequestDTO;
+import com.grupo5.payment_platform.DTOs.PixDTOs.PixReceiverResponseDTO;
+import com.grupo5.payment_platform.DTOs.PixDTOs.PixSenderRequestDTO;
+import com.grupo5.payment_platform.DTOs.PixDTOs.PixSenderResponseDTO;
 import com.grupo5.payment_platform.Models.Payments.TransactionModel;
 import com.grupo5.payment_platform.Models.Payments.PixPaymentDetail;
 import com.grupo5.payment_platform.Obsolete.TransactionRequestDTO;
+import com.grupo5.payment_platform.Services.BoletoServices.BoletoService;
 import com.grupo5.payment_platform.Services.TransactionsServices.TransactionService;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.UUID;
+
+
 
 @RestController
 @RequestMapping("/transactions")
 public class TransactionController {
 
     private final TransactionService transactionService;
+    private final BoletoService boletoService;
 
-    public TransactionController(TransactionService transactionService) {
+    public TransactionController(TransactionService transactionService, BoletoService boletoService) {
         this.transactionService = transactionService;
+        this.boletoService = boletoService;
     }
 
     //Endpoint para metodo de transferencia interna p2p
@@ -63,6 +78,37 @@ public class TransactionController {
         TransactionModel transacao = transactionService.pagarViaPixCopyPaste(request);
 
         PixSenderResponseDTO response = new PixSenderResponseDTO(transacao.getId(), transacao.getStatus().toString(), transacao.getAmount());
+
+        return ResponseEntity.ok(response);
+    }
+    //Endpoint para listar todas as transações de um usuário
+    @GetMapping("/user/{userId}")
+    public ResponseEntity<List<String>> listarTransacoes(@PathVariable UUID userId) {
+        List<String> resumo = transactionService.listAllTransactions(userId);
+        return ResponseEntity.ok(resumo);
+    }
+
+    @PostMapping("/generateBoleto")
+    public ResponseEntity<byte[]> generateBoleto(@RequestBody BoletoRequestDTO dto, HttpServletResponse response) throws Exception {
+        // Gera o PDF via service (que salva a transação e boleto detail conforme a arquitetura)
+        byte[] pdfBytes = boletoService.generateBoletoPdf(dto);
+
+        // Headers para PDF (attachment para download; mude para "inline" se quiser visualizar no browser)
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_PDF);
+        headers.setContentDispositionFormData("attachment", "boleto.pdf");
+
+        // Retorna o PDF como byte array
+        return ResponseEntity.ok()
+                .headers(headers)
+                .body(pdfBytes);
+    }
+
+    @PostMapping("/pagarBoleto")
+    public ResponseEntity<PagBoletoResponseDTO> pagarViaPixCopyPaste(@RequestBody PagBoletoRequestDTO request){
+        TransactionModel transacao = transactionService.pagarViaCodigoBoleto(request);
+
+        PagBoletoResponseDTO response = new PagBoletoResponseDTO(request.codeBoleto());
 
         return ResponseEntity.ok(response);
     }
