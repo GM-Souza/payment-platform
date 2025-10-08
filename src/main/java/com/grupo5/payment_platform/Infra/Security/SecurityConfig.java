@@ -35,12 +35,15 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST,"/auth/register-individual").permitAll()
                         .requestMatchers(HttpMethod.POST,"/auth/register-legalentity").permitAll()
                         .requestMatchers(HttpMethod.POST,"/transactions/pagar-copy-paste").permitAll()
+                        .requestMatchers(HttpMethod.POST,"/individual").permitAll()
                         .requestMatchers(HttpMethod.POST,"/auth/logout").permitAll()
+                        .requestMatchers(HttpMethod.POST,"/transactions/generateBoleto").permitAll()
+                        .requestMatchers(HttpMethod.POST,"transactions/pagarBoleto").permitAll()
                         .requestMatchers(HttpMethod.DELETE,"/auth").hasRole("ADMIN")
                         .requestMatchers("/users/**").permitAll()
                         .requestMatchers("/swagger-ui/**").permitAll()
                         .requestMatchers("/v3/api-docs/**").permitAll()
-                        .anyRequest().authenticated()
+                        .anyRequest().permitAll()
                 )
                 .addFilterBefore(securityFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();

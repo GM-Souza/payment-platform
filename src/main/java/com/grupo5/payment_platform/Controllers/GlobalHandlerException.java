@@ -92,4 +92,15 @@ public class GlobalHandlerException {
                 LocalDateTime.now()
         );
     }
+
+    @ExceptionHandler(CodeBoletoNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ErrorResponseDTO codeBoletoNotFoundException(CodeBoletoNotFoundException ex){
+        ErrorResponseDTO errorResponseDTO = new ErrorResponseDTO(
+                ex.getMessage(),
+                "O código do boleto fornecido não foi encontrado. Verifique e tente novamente.",
+                LocalDateTime.now()
+        );
+        return errorResponseDTO;
+    }
 }

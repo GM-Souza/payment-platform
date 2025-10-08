@@ -1,5 +1,5 @@
 package com.grupo5.payment_platform.Services;
-
+/*
 import com.grupo5.payment_platform.Repositories.*;
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
@@ -33,4 +33,4 @@ public class DatabaseCleanerService {
         legalRepo.deleteAllInBatch();
         usersRepo.deleteAllInBatch();
     }
-}
+}*/
