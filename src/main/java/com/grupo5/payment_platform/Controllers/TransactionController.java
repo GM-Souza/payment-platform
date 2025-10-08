@@ -1,6 +1,5 @@
 package com.grupo5.payment_platform.Controllers;
 
-
 import com.grupo5.payment_platform.DTOs.PixDTOs.*;
 import com.grupo5.payment_platform.DTOs.BoletosDTOs.BoletoRequestDTO;
 import com.grupo5.payment_platform.DTOs.BoletosDTOs.PagBoletoRequestDTO;
@@ -20,11 +19,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
-import java.util.UUID;
-
-
 
 @RestController
 @RequestMapping("/transactions")
@@ -80,12 +74,6 @@ public class TransactionController {
         PixSenderResponseDTO response = new PixSenderResponseDTO(transacao.getId(), transacao.getStatus().toString(), transacao.getAmount());
 
         return ResponseEntity.ok(response);
-    }
-    //Endpoint para listar todas as transações de um usuário
-    @GetMapping("/user/{userId}")
-    public ResponseEntity<List<String>> listarTransacoes(@PathVariable UUID userId) {
-        List<String> resumo = transactionService.listAllTransactions(userId);
-        return ResponseEntity.ok(resumo);
     }
 
     @PostMapping("/generateBoleto")
