@@ -2,6 +2,8 @@ package com.grupo5.payment_platform.Services.TransactionsServices;
 
 import com.grupo5.payment_platform.DTOs.PixDTOs.PixReceiverRequestDTO;
 import com.grupo5.payment_platform.DTOs.PixDTOs.PixSenderRequestDTO;
+import com.grupo5.payment_platform.Enums.EmailSubject;
+import com.grupo5.payment_platform.Infra.Kafka.TransactionNotificationDTO;
 import com.grupo5.payment_platform.Obsolete.TransactionRequestDTO;
 import com.grupo5.payment_platform.Enums.TransactionStatus;
 import com.grupo5.payment_platform.Exceptions.InsufficientBalanceException;
@@ -14,6 +16,7 @@ import com.grupo5.payment_platform.Models.Payments.PixPaymentDetail;
 import com.grupo5.payment_platform.Repositories.PixPaymentDetailRepository;
 import com.grupo5.payment_platform.Repositories.TransactionRepository;
 import com.grupo5.payment_platform.Repositories.UserRepository;
+import com.grupo5.payment_platform.Services.TransactionKafkaService;
 import com.grupo5.payment_platform.Services.UsersServices.UserService;
 import com.mercadopago.client.payment.PaymentClient;
 import com.mercadopago.client.payment.PaymentCreateRequest;
@@ -38,18 +41,21 @@ public class TransactionService {
     private UserService userService;
     private UserRepository userRepository;
     private PixPaymentDetailRepository pixPaymentDetailRepository;
+    private TransactionKafkaService transactionKafkaService;
 
 
     // Injeção de dependências via construtor
     public TransactionService(TransactionRepository transactionRepository,
                               UserService userService,
                               PixPaymentDetailRepository pixPaymentDetailRepository,
-                              UserRepository userRepository) {
+                              UserRepository userRepository,
+                              TransactionKafkaService transactionKafkaService) {
 
         this.transactionRepository = transactionRepository;
         this.userService = userService;
         this.pixPaymentDetailRepository = pixPaymentDetailRepository;
         this.userRepository = userRepository;
+        this.transactionKafkaService = transactionKafkaService;
     }
 
 
@@ -250,13 +256,16 @@ public class TransactionService {
         transaction.setMercadoPagoPaymentId(mercadoPagoPaymentId);
         transactionRepository.save(transaction);
 
+        TransactionNotificationDTO notify = new TransactionNotificationDTO(transaction.getReceiver().getEmail(),transaction.getReceiver().getEmail(), EmailSubject.PAYMENT_RECEIVED);
+        transactionKafkaService.sendTransactionNotification(notify);
+
         return transaction;
     }
 
     // Este metodo é chamado automaticamente pelo Spring, não manualmente
     @Scheduled(fixedRate = 60000)
     public void cancelarPixPendentes() {
-        LocalDateTime limite = LocalDateTime.now().minusMinutes(1);
+        LocalDateTime limite = LocalDateTime.now().minusMinutes(30);
         List<TransactionModel> pendentes = transactionRepository.findByStatusAndCreateDateBefore(TransactionStatus.PENDING, limite);
         for (TransactionModel transacao : pendentes) {
             transacao.setStatus(TransactionStatus.CANCELLED);
