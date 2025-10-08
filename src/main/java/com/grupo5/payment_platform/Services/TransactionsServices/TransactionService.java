@@ -5,8 +5,10 @@ import com.grupo5.payment_platform.DTOs.PixDTOs.PixReceiverRequestDTO;
 import com.grupo5.payment_platform.DTOs.PixDTOs.PixSenderRequestDTO;
 import com.grupo5.payment_platform.DTOs.PixDTOs.WithdrawRequestDTO;
 import com.grupo5.payment_platform.DTOs.BoletosDTOs.PagBoletoRequestDTO;
+import com.grupo5.payment_platform.Enums.EmailSubject;
 import com.grupo5.payment_platform.Enums.TransactionStatus;
 import com.grupo5.payment_platform.Exceptions.*;
+import com.grupo5.payment_platform.Infra.Kafka.TransactionNotificationDTO;
 import com.grupo5.payment_platform.Models.Payments.BoletoModel;
 import com.grupo5.payment_platform.Models.Payments.BoletoPaymentDetail;
 import com.grupo5.payment_platform.Models.Payments.PixModel;
@@ -18,6 +20,7 @@ import com.grupo5.payment_platform.Repositories.BoletoRepository;
 import com.grupo5.payment_platform.Repositories.PixPaymentDetailRepository;
 import com.grupo5.payment_platform.Repositories.TransactionRepository;
 import com.grupo5.payment_platform.Repositories.UserRepository;
+import com.grupo5.payment_platform.Services.TransactionKafkaService;
 import com.grupo5.payment_platform.Services.UsersServices.UserService;
 import com.mercadopago.client.payment.PaymentClient;
 import com.mercadopago.client.payment.PaymentCreateRequest;
@@ -41,17 +44,19 @@ public class TransactionService {
     private final UserRepository userRepository;
     private final PixPaymentDetailRepository pixPaymentDetailRepository;
     private final BoletoRepository boletoRepository;
+    private final TransactionKafkaService transactionKafkaService;
 
     public TransactionService(TransactionRepository transactionRepository,
                               BoletoRepository boletoRepository,
                               PixPaymentDetailRepository pixPaymentDetailRepository,
                               UserRepository userRepository,
-                              UserService userService) {
+                              UserService userService, TransactionKafkaService transactionKafkaService) {
         this.transactionRepository = transactionRepository;
         this.boletoRepository = boletoRepository;
         this.pixPaymentDetailRepository = pixPaymentDetailRepository;
         this.userRepository = userRepository;
         this.userService = userService;
+        this.transactionKafkaService = transactionKafkaService;
     }
 
 
@@ -235,6 +240,9 @@ public class TransactionService {
         transaction.setStatus(TransactionStatus.APPROVED);// aprovado quando pago
         transaction.setFinalDate(LocalDateTime.now());
         transactionRepository.save(transaction);
+        TransactionNotificationDTO notify = new TransactionNotificationDTO(transaction.getReceiver().getEmail(), transaction.getReceiver().getEmail(), EmailSubject.PAYMENT_RECEIVED);
+        transactionKafkaService.sendTransactionNotification(notify);
+
 
         return transaction;
     }
