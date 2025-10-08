@@ -25,6 +25,7 @@ repositories {
 }
 
 dependencies {
+    implementation 'org.springframework.kafka:spring-kafka'
     implementation 'com.mercadopago:sdk-java:2.1.13'
     implementation 'me.paulschwarz:spring-dotenv:3.0.0'
     implementation 'com.auth0:java-jwt:4.4.0'
