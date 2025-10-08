@@ -1,5 +1,5 @@
 package com.grupo5.payment_platform.Controllers;
-
+/*
 import com.grupo5.payment_platform.Services.DatabaseCleanerService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -19,4 +19,4 @@ public class DatabaseCleanerController {
         cleanerService.limparTudo();
         return ResponseEntity.ok("Banco de dados limpo com sucesso!");
     }
-}
+}*/
