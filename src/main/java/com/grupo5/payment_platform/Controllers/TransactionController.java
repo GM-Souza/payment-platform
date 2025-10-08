@@ -49,8 +49,8 @@ public class TransactionController {
 
         //Montando o response DTO
         PixReceiverResponseDTO response = new PixReceiverResponseDTO(
-                pixDetail.getTransaction().getId(),
-                pixDetail.getTransaction().getStatus().toString(), // PENDING
+                pixDetail.getPixTransaction().getId(),
+                pixDetail.getPixTransaction().getStatus().toString(), // PENDING
                 pixDetail.getQrCodeBase64(), pixDetail.getQrCodeCopyPaste()
         );
 

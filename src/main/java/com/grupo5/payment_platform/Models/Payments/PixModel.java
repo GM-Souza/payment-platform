@@ -1,6 +1,5 @@
 package com.grupo5.payment_platform.Models.Payments;
 
-import com.grupo5.payment_platform.Enums.TransactionStatus;
 import com.grupo5.payment_platform.Models.Users.UserModel;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -8,9 +7,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Getter
 @Setter
@@ -19,7 +16,7 @@ import java.util.UUID;
 @Entity
 @Table(name = "tb_pixTransactions")
 @PrimaryKeyJoinColumn(name = "id")
-public class PixModel extends TransactionModel{
+public class PixModel extends TransactionModel {
 
     @Column(name = "final_transaction_date")
     private LocalDateTime finalDate;
@@ -28,8 +25,11 @@ public class PixModel extends TransactionModel{
     @JoinColumn(name = "receiver_id")
     private UserModel receiver;
 
-    @OneToOne
-    @JoinColumn(name = "id", nullable = false)
+    @OneToOne(mappedBy = "pixTransaction", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private PixPaymentDetail pixPaymentDetail;
 
+    public void attachDetail(PixPaymentDetail detail) {
+        this.pixPaymentDetail = detail;
+        detail.setPixTransaction(this);
+    }
 }

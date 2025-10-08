@@ -41,6 +41,4 @@ public class TransactionModel {
 
     @Column(name = "payment_type")
     private String paymentType; // Ex: PIX, CREDIT_CARD, DEBIT_CARD, etc.
-
-    @OneToOne(mappedBy = "transaction", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    private PaymentDetail paymentDetail;}
+}

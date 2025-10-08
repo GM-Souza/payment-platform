@@ -36,10 +36,10 @@ import java.util.List;
 @Service
 public class TransactionService {
 
-    private TransactionRepository transactionRepository;
-    private UserService userService;
-    private UserRepository userRepository;
-    private PixPaymentDetailRepository pixPaymentDetailRepository;
+    private final TransactionRepository transactionRepository;
+    private final UserService userService;
+    private final UserRepository userRepository;
+    private final PixPaymentDetailRepository pixPaymentDetailRepository;
 
     // Injeção de dependências via construtor
     public TransactionService(TransactionRepository transactionRepository,
@@ -64,7 +64,7 @@ public class TransactionService {
         }
 
         user.setBalance(user.getBalance().add(dto.amount()));
-        userRepository.save(user); // Salva o usuário com saldo atualizado
+        userRepository.save(user); // Salva o usuario com saldo atualizado
 
         TransactionModel depositTransaction = new TransactionModel();
         depositTransaction.setUser(user);
@@ -179,21 +179,14 @@ public class TransactionService {
         transaction.setDate(LocalDateTime.now());
         transaction.setPaymentType("PIX");
         transaction.setStatus(TransactionStatus.PENDING);
-        transaction = transactionRepository.save(transaction);
 
-        // Salva os detalhes Pix
         PixPaymentDetail pixDetail = new PixPaymentDetail();
         pixDetail.setQrCodeBase64(paymentResponse.getPointOfInteraction().getTransactionData().getQrCodeBase64());
         pixDetail.setQrCodeCopyPaste(paymentResponse.getPointOfInteraction().getTransactionData().getQrCode());
         pixDetail.setMercadoPagoPaymentId(paymentResponse.getId());
-        pixDetail.setTransaction(transaction);
+        transaction.attachDetail(pixDetail); // vincula ambos os lados
 
-        // Salva o PixPaymentDetail no banco de dados
-        pixPaymentDetailRepository.save(pixDetail);
-
-        // Atualiza a transação com o PixDetail
-        transaction.setPaymentDetail(pixDetail);
-        transactionRepository.save(transaction);
+        transactionRepository.save(transaction); // cascade salva o detail
 
         return pixDetail;
     }
@@ -205,15 +198,12 @@ public class TransactionService {
         // Busca o detalhe da cobrança pelo código Pix
         PixPaymentDetail pixDetail = pixPaymentDetailRepository.findByQrCodeCopyPaste(dto.qrCodeCopyPaste());
 
-        // Pega o ID do pagamento no MercadoPago antes de verificar se pixDetail é nulo
-        Long mercadoPagoPaymentId = pixDetail.getMercadoPagoPaymentId();
-
         // Verifica se o detalhe da cobrança existe
         if (pixDetail == null) {
             throw new PixQrCodeNotFoundException("Cobrança Pix não encontrada.");
         }
 
-        PixModel transaction = (PixModel) pixDetail.getTransaction();
+        PixModel transaction = pixDetail.getPixTransaction();
 
         // Verifica se a transação está pendente
         if (!TransactionStatus.PENDING.equals(transaction.getStatus())) {
