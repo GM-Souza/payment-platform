@@ -34,6 +34,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST,"/auth/login").permitAll()
                         .requestMatchers(HttpMethod.POST,"/auth/register-individual").permitAll()
                         .requestMatchers(HttpMethod.POST,"/auth/register-legalentity").permitAll()
+                        .requestMatchers(HttpMethod.POST,"/transactions/pagar-copy-paste").permitAll()
                         .requestMatchers(HttpMethod.POST,"/auth/logout").permitAll()
                         .requestMatchers(HttpMethod.DELETE,"/auth").hasRole("ADMIN")
                         .requestMatchers("/users/**").permitAll()
