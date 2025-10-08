@@ -1,10 +1,7 @@
 package com.grupo5.payment_platform.Controllers;
 
 
-import com.grupo5.payment_platform.DTOs.PixDTOs.PixReceiverRequestDTO;
-import com.grupo5.payment_platform.DTOs.PixDTOs.PixReceiverResponseDTO;
-import com.grupo5.payment_platform.DTOs.PixDTOs.PixSenderRequestDTO;
-import com.grupo5.payment_platform.DTOs.PixDTOs.PixSenderResponseDTO;
+import com.grupo5.payment_platform.DTOs.PixDTOs.*;
 import com.grupo5.payment_platform.Models.Payments.TransactionModel;
 import com.grupo5.payment_platform.Models.Payments.PixPaymentDetail;
 import com.grupo5.payment_platform.Obsolete.TransactionRequestDTO;
@@ -33,15 +30,15 @@ public class TransactionController {
         return new ResponseEntity<>(newTransaction, HttpStatus.OK);
     }
 
-    @PostMapping("/saque")
-    public ResponseEntity<TransactionModel> createDeposit(@RequestBody PixReceiverRequestDTO dto) {
-        TransactionModel newTransaction = transactionService.withdrawFunds(dto);
+    @PostMapping("/deposito")
+    public ResponseEntity<TransactionModel> createDeposit(@RequestBody DepositRequestDTO dto) {
+        TransactionModel newTransaction = transactionService.depositFunds(dto);
         return new ResponseEntity<>(newTransaction, HttpStatus.OK);
     }
 
-    @PostMapping("/deposito")
-    public ResponseEntity<TransactionModel> createWithdraw(@RequestBody PixReceiverRequestDTO dto) {
-        TransactionModel newTransaction = transactionService.depositFunds(dto);
+    @PostMapping("/saque")
+    public ResponseEntity<TransactionModel> createWithdraw(@RequestBody WithdrawRequestDTO dto) {
+        TransactionModel newTransaction = transactionService.withdrawFunds(dto);
         return new ResponseEntity<>(newTransaction, HttpStatus.OK);
     }
 
