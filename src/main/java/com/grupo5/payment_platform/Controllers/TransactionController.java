@@ -2,6 +2,8 @@ package com.grupo5.payment_platform.Controllers;
 
 
 import com.grupo5.payment_platform.DTOs.BoletosDTOs.BoletoRequestDTO;
+import com.grupo5.payment_platform.DTOs.BoletosDTOs.PagBoletoRequestDTO;
+import com.grupo5.payment_platform.DTOs.BoletosDTOs.PagBoletoResponseDTO;
 import com.grupo5.payment_platform.DTOs.PixDTOs.PixReceiverRequestDTO;
 import com.grupo5.payment_platform.DTOs.PixDTOs.PixReceiverResponseDTO;
 import com.grupo5.payment_platform.DTOs.PixDTOs.PixSenderRequestDTO;
@@ -99,6 +101,15 @@ public class TransactionController {
         return ResponseEntity.ok()
                 .headers(headers)
                 .body(pdfBytes);
+    }
+
+    @PostMapping("/pagarBoleto")
+    public ResponseEntity<PagBoletoResponseDTO> pagarViaPixCopyPaste(@RequestBody PagBoletoRequestDTO request){
+        TransactionModel transacao = transactionService.pagarViaCodigoBoleto(request);
+
+        PagBoletoResponseDTO response = new PagBoletoResponseDTO(request.codeBoleto());
+
+        return ResponseEntity.ok(response);
     }
 
 }

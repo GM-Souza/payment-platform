@@ -1,16 +1,16 @@
 package com.grupo5.payment_platform.Services.TransactionsServices;
 
+import com.grupo5.payment_platform.DTOs.BoletosDTOs.PagBoletoRequestDTO;
 import com.grupo5.payment_platform.DTOs.PixDTOs.PixReceiverRequestDTO;
 import com.grupo5.payment_platform.DTOs.PixDTOs.PixSenderRequestDTO;
+import com.grupo5.payment_platform.Exceptions.*;
+import com.grupo5.payment_platform.Models.Payments.BoletoPaymentDetail;
 import com.grupo5.payment_platform.Obsolete.TransactionRequestDTO;
 import com.grupo5.payment_platform.Enums.TransactionStatus;
-import com.grupo5.payment_platform.Exceptions.InsufficientBalanceException;
-import com.grupo5.payment_platform.Exceptions.InvalidTransactionAmountException;
-import com.grupo5.payment_platform.Exceptions.PixQrCodeNotFoundException;
-import com.grupo5.payment_platform.Exceptions.UserNotFoundException;
 import com.grupo5.payment_platform.Models.Payments.TransactionModel;
 import com.grupo5.payment_platform.Models.Users.UserModel;
 import com.grupo5.payment_platform.Models.Payments.PixPaymentDetail;
+import com.grupo5.payment_platform.Repositories.BoletoRepository;
 import com.grupo5.payment_platform.Repositories.PixPaymentDetailRepository;
 import com.grupo5.payment_platform.Repositories.TransactionRepository;
 import com.grupo5.payment_platform.Repositories.UserRepository;
@@ -38,20 +38,16 @@ public class TransactionService {
     private UserService userService;
     private UserRepository userRepository;
     private PixPaymentDetailRepository pixPaymentDetailRepository;
+    private BoletoRepository boletoRepository;
 
 
-    // Injeção de dependências via construtor
-    public TransactionService(TransactionRepository transactionRepository,
-                              UserService userService,
-                              PixPaymentDetailRepository pixPaymentDetailRepository,
-                              UserRepository userRepository) {
-
+    public TransactionService(TransactionRepository transactionRepository, BoletoRepository boletoRepository, PixPaymentDetailRepository pixPaymentDetailRepository, UserRepository userRepository, UserService userService) {
         this.transactionRepository = transactionRepository;
-        this.userService = userService;
+        this.boletoRepository = boletoRepository;
         this.pixPaymentDetailRepository = pixPaymentDetailRepository;
         this.userRepository = userRepository;
+        this.userService = userService;
     }
-
 
     public TransactionModel depositFunds(PixReceiverRequestDTO dto) {
         UserModel user = userService.findById(dto.receiverId());
@@ -272,6 +268,46 @@ public class TransactionService {
                     return sinal + " " + tx.getAmount() + " | " + tx.getPaymentType();
                 })
                 .toList();
+    }
+
+    // PAGAR BOLETO
+    @Transactional
+    public TransactionModel pagarViaCodigoBoleto(PagBoletoRequestDTO dto){
+
+        BoletoPaymentDetail boletoPaymentDetail = boletoRepository.findByBoletoCode(dto.codeBoleto()).orElseThrow(()->
+                new CodeBoletoNotFoundException("Cobrança via boleto não encontrada."));
+
+
+        TransactionModel transaction = boletoPaymentDetail.getTransaction();
+
+        // Verifica se a transação está pendente
+        if (!TransactionStatus.PENDING.equals(transaction.getStatus())) {
+            transaction.setFinalDate(LocalDateTime.now());
+            throw new InvalidTransactionAmountException("Essa cobrança já foi paga ou cancelada.");
+        }
+
+        UserModel sender = transaction.getSender();
+        UserModel receiver = transaction.getReceiver();
+        BigDecimal amount = transaction.getAmount();
+
+        if (sender.getBalance().compareTo(amount) < 0) {
+            throw new InsufficientBalanceException("Saldo insuficiente.");
+        }
+
+        // Realiza o pagamento
+        sender.setBalance(sender.getBalance().subtract(amount));
+        receiver.setBalance(receiver.getBalance().add(amount));
+
+        // Atualiza a transação
+        transaction.setSender(sender);
+        transaction.setReceiver(receiver);
+        transaction.setStatus(TransactionStatus.APPROVED);// aprovado quando pago
+        transaction.setFinalDate(LocalDateTime.now());
+        transaction.setPaymentType("BOLETO");
+        transaction.setPaymentDetail(boletoPaymentDetail);
+        transactionRepository.save(transaction);
+
+        return transaction;
     }
 
 }
