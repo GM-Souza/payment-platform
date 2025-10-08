@@ -1,6 +1,7 @@
 package com.grupo5.payment_platform.Controllers;
 
 
+import com.grupo5.payment_platform.DTOs.PixDTOs.*;
 import com.grupo5.payment_platform.DTOs.BoletosDTOs.BoletoRequestDTO;
 import com.grupo5.payment_platform.DTOs.BoletosDTOs.PagBoletoRequestDTO;
 import com.grupo5.payment_platform.DTOs.BoletosDTOs.PagBoletoResponseDTO;
@@ -44,15 +45,15 @@ public class TransactionController {
         return new ResponseEntity<>(newTransaction, HttpStatus.OK);
     }
 
-    @PostMapping("/saque")
-    public ResponseEntity<TransactionModel> createDeposit(@RequestBody PixReceiverRequestDTO dto) {
-        TransactionModel newTransaction = transactionService.withdrawFunds(dto);
+    @PostMapping("/deposito")
+    public ResponseEntity<TransactionModel> createDeposit(@RequestBody DepositRequestDTO dto) {
+        TransactionModel newTransaction = transactionService.depositFunds(dto);
         return new ResponseEntity<>(newTransaction, HttpStatus.OK);
     }
 
-    @PostMapping("/deposito")
-    public ResponseEntity<TransactionModel> createWithdraw(@RequestBody PixReceiverRequestDTO dto) {
-        TransactionModel newTransaction = transactionService.depositFunds(dto);
+    @PostMapping("/saque")
+    public ResponseEntity<TransactionModel> createWithdraw(@RequestBody WithdrawRequestDTO dto) {
+        TransactionModel newTransaction = transactionService.withdrawFunds(dto);
         return new ResponseEntity<>(newTransaction, HttpStatus.OK);
     }
 
@@ -63,8 +64,8 @@ public class TransactionController {
 
         //Montando o response DTO
         PixReceiverResponseDTO response = new PixReceiverResponseDTO(
-                pixDetail.getTransaction().getId(),
-                pixDetail.getTransaction().getStatus().toString(), // PENDING
+                pixDetail.getPixTransaction().getId(),
+                pixDetail.getPixTransaction().getStatus().toString(), // PENDING
                 pixDetail.getQrCodeBase64(), pixDetail.getQrCodeCopyPaste()
         );
 

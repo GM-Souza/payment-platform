@@ -4,22 +4,30 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.math.BigDecimal;
+import java.util.UUID;
 
 @Entity
 @Table(name = "tb_pix_payment_details")
 @Getter
 @Setter
-public class PixPaymentDetail extends PaymentDetail {
+public class PixPaymentDetail {
+
+    @Id
+    @Column(name = "id")
+    private UUID id; // mesma PK da transação Pix
+
+    @OneToOne
+    @MapsId
+    @JoinColumn(name = "id")
+    private PixModel pixTransaction;
 
     private Long mercadoPagoPaymentId; // ID do pagamento gerado pelo MercadoPago
 
-    @Column(name = "amount", nullable = false)
-    private BigDecimal amount;
-    
-    @Column(name = "qr_code_base64", columnDefinition = "TEXT")
+    @Lob
+    @Column(name = "qr_code_base64", columnDefinition = "LONGTEXT")
     private String qrCodeBase64;
 
-    @Column(name = "qr_code_copy_paste", columnDefinition = "TEXT")
+    @Lob
+    @Column(name = "qr_code_copy_paste", columnDefinition = "LONGTEXT")
     private String qrCodeCopyPaste;
 }

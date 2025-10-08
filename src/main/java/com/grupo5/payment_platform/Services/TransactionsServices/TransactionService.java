@@ -1,5 +1,10 @@
 package com.grupo5.payment_platform.Services.TransactionsServices;
 
+import com.grupo5.payment_platform.DTOs.PixDTOs.DepositRequestDTO;
+import com.grupo5.payment_platform.DTOs.PixDTOs.PixReceiverRequestDTO;
+import com.grupo5.payment_platform.DTOs.PixDTOs.PixSenderRequestDTO;
+import com.grupo5.payment_platform.DTOs.PixDTOs.WithdrawRequestDTO;
+import com.grupo5.payment_platform.Models.Payments.PixModel;
 import com.grupo5.payment_platform.DTOs.BoletosDTOs.PagBoletoRequestDTO;
 import com.grupo5.payment_platform.DTOs.PixDTOs.PixReceiverRequestDTO;
 import com.grupo5.payment_platform.DTOs.PixDTOs.PixSenderRequestDTO;
@@ -49,8 +54,9 @@ public class TransactionService {
         this.userService = userService;
     }
 
-    public TransactionModel depositFunds(PixReceiverRequestDTO dto) {
-        UserModel user = userService.findById(dto.receiverId());
+
+    public TransactionModel depositFunds(DepositRequestDTO dto) {
+        UserModel user = userService.findById(dto.userId());
         if (user == null) {
             throw new UserNotFoundException("Usuário não encontrado");
         }
@@ -59,24 +65,22 @@ public class TransactionService {
         }
 
         user.setBalance(user.getBalance().add(dto.amount()));
-        userRepository.save(user); // Salva o usuário com saldo atualizado
+        userRepository.save(user); // Salva o usuario com saldo atualizado
 
         TransactionModel depositTransaction = new TransactionModel();
-        depositTransaction.setSender(null); // Depósito não tem remetente
-        depositTransaction.setReceiver(user);
+        depositTransaction.setUser(user);
         depositTransaction.setAmount(dto.amount());
-        depositTransaction.setCreateDate(LocalDateTime.now());
-        depositTransaction.setFinalDate(LocalDateTime.now());
+        depositTransaction.setDate(LocalDateTime.now());
         depositTransaction.setStatus(TransactionStatus.APPROVED);
-        depositTransaction.setPaymentType("Deposit");
+        depositTransaction.setPaymentType("DEPOSIT");
 
         transactionRepository.save(depositTransaction);
 
         return depositTransaction;
     }
 
-    public TransactionModel withdrawFunds(PixReceiverRequestDTO dto) {
-        UserModel user = userService.findById(dto.receiverId());
+    public TransactionModel withdrawFunds(WithdrawRequestDTO dto) {
+        UserModel user = userService.findById(dto.userId());
         if (user == null) {
             throw new UserNotFoundException("Usuário não encontrado");
         }
@@ -91,13 +95,11 @@ public class TransactionService {
         userRepository.save(user); // Service delega para o Repository
 
         TransactionModel withdrawTransaction = new TransactionModel();
-        withdrawTransaction.setSender(user);
-        withdrawTransaction.setReceiver(null); // Saque não tem destinatário
+        withdrawTransaction.setUser(user);
         withdrawTransaction.setAmount(dto.amount());
-        withdrawTransaction.setCreateDate(LocalDateTime.now());
-        withdrawTransaction.setFinalDate(LocalDateTime.now());
+        withdrawTransaction.setDate(LocalDateTime.now());
         withdrawTransaction.setStatus(TransactionStatus.APPROVED);
-        withdrawTransaction.setPaymentType("Withdraw");
+        withdrawTransaction.setPaymentType("WITHDRAW");
 
         transactionRepository.save(withdrawTransaction);
 
@@ -132,12 +134,12 @@ public class TransactionService {
         receiver.setBalance(receiver.getBalance().add(dto.amount()));
 
         TransactionModel newTransaction = new TransactionModel();
-        newTransaction.setSender(sender);
-        newTransaction.setReceiver(receiver);
+        // newTransaction.setSender(sender);
+       // newTransaction.setReceiver(receiver);
         newTransaction.setAmount(dto.amount());
-        newTransaction.setCreateDate(LocalDateTime.now());
-        newTransaction.setFinalDate(null);
-        newTransaction.setPaymentType("Pix");
+       //newTransaction.setCreateDate(LocalDateTime.now());
+       // newTransaction.setFinalDate(null);
+        newTransaction.setPaymentType("PIX");
         transactionRepository.save(newTransaction);
 
         return newTransaction;
@@ -171,49 +173,38 @@ public class TransactionService {
         Payment paymentResponse = client.create(createRequest);
 
         // Cria transação PENDING (sem pagador ainda)
-        TransactionModel transaction = new TransactionModel();
-        transaction.setSender(null);
+        PixModel transaction = new PixModel();
         transaction.setReceiver(receiver);
+        transaction.setUser(receiver);
         transaction.setAmount(amount);
-        transaction.setCreateDate(LocalDateTime.now());
-        transaction.setFinalDate(null);
+        transaction.setDate(LocalDateTime.now());
+        transaction.setPaymentType("PIX");
         transaction.setStatus(TransactionStatus.PENDING);
-        transaction = transactionRepository.save(transaction);
 
-        // Salva os detalhes Pix
         PixPaymentDetail pixDetail = new PixPaymentDetail();
         pixDetail.setQrCodeBase64(paymentResponse.getPointOfInteraction().getTransactionData().getQrCodeBase64());
         pixDetail.setQrCodeCopyPaste(paymentResponse.getPointOfInteraction().getTransactionData().getQrCode());
         pixDetail.setMercadoPagoPaymentId(paymentResponse.getId());
-        pixDetail.setAmount(amount);
-        pixDetail.setTransaction(transaction);
+        transaction.attachDetail(pixDetail); // vincula ambos os lados
 
-        // Salva o PixPaymentDetail no banco de dados
-        pixPaymentDetailRepository.save(pixDetail);
-
-        // Atualiza a transação com o PixDetail
-        transaction.setPaymentDetail(pixDetail);
-        transactionRepository.save(transaction);
+        transactionRepository.save(transaction); // cascade salva o detail
 
         return pixDetail;
     }
 
     // PAGAR COBRANÇA PIX
     @Transactional
-    public TransactionModel pagarViaPixCopyPaste(PixSenderRequestDTO dto){
+    public PixModel pagarViaPixCopyPaste(PixSenderRequestDTO dto){
 
         // Busca o detalhe da cobrança pelo código Pix
         PixPaymentDetail pixDetail = pixPaymentDetailRepository.findByQrCodeCopyPaste(dto.qrCodeCopyPaste());
-
-        // Pega o ID do pagamento no MercadoPago antes de verificar se pixDetail é nulo
-        Long mercadoPagoPaymentId = pixDetail.getMercadoPagoPaymentId();
 
         // Verifica se o detalhe da cobrança existe
         if (pixDetail == null) {
             throw new PixQrCodeNotFoundException("Cobrança Pix não encontrada.");
         }
 
-        TransactionModel transaction = pixDetail.getTransaction();
+        PixModel transaction = pixDetail.getPixTransaction();
 
         // Verifica se a transação está pendente
         if (!TransactionStatus.PENDING.equals(transaction.getStatus())) {
@@ -229,7 +220,7 @@ public class TransactionService {
 
 
         UserModel receiver = transaction.getReceiver();
-        BigDecimal amount = pixDetail.getAmount();
+        BigDecimal amount = transaction.getAmount();
 
         if (sender.getBalance().compareTo(amount) < 0) {
             throw new InsufficientBalanceException("Saldo insuficiente.");
@@ -240,10 +231,9 @@ public class TransactionService {
         receiver.setBalance(receiver.getBalance().add(amount));
 
         // Atualiza a transação
-        transaction.setSender(sender);
+        transaction.setUser(sender);
         transaction.setStatus(TransactionStatus.APPROVED);// aprovado quando pago
         transaction.setFinalDate(LocalDateTime.now());
-        transaction.setMercadoPagoPaymentId(mercadoPagoPaymentId);
         transactionRepository.save(transaction);
 
         return transaction;
@@ -253,7 +243,7 @@ public class TransactionService {
     @Scheduled(fixedRate = 60000)
     public void cancelarPixPendentes() {
         LocalDateTime limite = LocalDateTime.now().minusMinutes(1);
-        List<TransactionModel> pendentes = transactionRepository.findByStatusAndCreateDateBefore(TransactionStatus.PENDING, limite);
+        List<TransactionModel> pendentes = transactionRepository.findByStatusAndDateBefore(TransactionStatus.PENDING, limite);
         for (TransactionModel transacao : pendentes) {
             transacao.setStatus(TransactionStatus.CANCELLED);
             transactionRepository.save(transacao);
