@@ -441,7 +441,8 @@ public class BoletoService {
         transaction.setCreateDate(LocalDateTime.now());
         transaction.setFinalDate(null);
         transaction.setStatus(TransactionStatus.PENDING);
-        transaction = transactionRepository.save(transaction);
+        transaction.setPaymentType("BOLETO");
+
 
         //salvar na tabela de Boleto as informações
         BoletoPaymentDetail boletoPaymentDetail = new BoletoPaymentDetail();
@@ -456,6 +457,11 @@ public class BoletoService {
         LocalDate venc = LocalDate.parse(vencimento, formatter);
         boletoPaymentDetail.setDueDate(venc);
         boletoPaymentDetail.setTransaction(transaction);
+
+
+        //mudei aqui
+       // transaction.setPaymentDetail(boletoPaymentDetail);
+        transaction = transactionRepository.save(transaction);
 
         // Salva o BoletoPaymentDetails no banco de dados
         boletoRepository.save(boletoPaymentDetail);

@@ -36,6 +36,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST,"/auth/register-legalentity").permitAll()
                         .requestMatchers(HttpMethod.POST,"/auth/logout").permitAll()
                         .requestMatchers(HttpMethod.POST,"/transactions/generateBoleto").permitAll()
+                        .requestMatchers(HttpMethod.POST,"transactions/pagarBoleto").permitAll()
                         .requestMatchers(HttpMethod.DELETE,"/auth").hasRole("ADMIN")
                         .requestMatchers("/users/**").permitAll()
                         .requestMatchers("/swagger-ui/**").permitAll()
