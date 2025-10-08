@@ -10,5 +10,5 @@ import java.util.List;
 import java.util.UUID;
 
 public interface TransactionRepository extends JpaRepository<TransactionModel, UUID> {
-    List<TransactionModel> findByStatusAndCreateDateBefore(TransactionStatus transactionStatus, LocalDateTime limite);
+   List<TransactionModel> findByStatusAndDateBefore(TransactionStatus transactionStatus, LocalDateTime limite);
 }

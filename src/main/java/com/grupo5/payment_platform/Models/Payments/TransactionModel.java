@@ -26,35 +26,21 @@ public class TransactionModel {
     private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "sender_id")
-    private UserModel sender;
+    @JoinColumn(name = "user_id")
+    private UserModel user;
 
     @Column(name = "amount", nullable = false)
     private BigDecimal amount;
 
-    @Column(name = "create_transaction_date")
-    private LocalDateTime createDate;
-
-    @Column(name = "final_transaction_date")
-    private LocalDateTime finalDate;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "receiver_id")
-    private UserModel receiver;
+    @Column(name = "solicitation_date")
+    private LocalDateTime date;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     private TransactionStatus status;
 
-    @Column(name = "mp_payment_id")
-    private Long mercadoPagoPaymentId;
-
     @Column(name = "payment_type")
     private String paymentType; // Ex: PIX, CREDIT_CARD, DEBIT_CARD, etc.
 
     @OneToOne(mappedBy = "transaction", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    private PaymentDetail paymentDetail;
-
-
-
-}
+    private PaymentDetail paymentDetail;}
