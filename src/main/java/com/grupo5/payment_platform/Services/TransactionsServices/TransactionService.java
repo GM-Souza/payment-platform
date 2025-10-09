@@ -37,7 +37,6 @@ import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
-import java.util.Optional;
 
 @Service
 public class TransactionService {
@@ -65,7 +64,7 @@ public class TransactionService {
 
     public TransactionModel depositFunds(DepositRequestDTO dto) {
         UserModel user = userService.findByEmail(dto.email()).orElseThrow();
-        if (user == null) {
+        if (user.getEmail() == null) {
             throw new UserNotFoundException("Usuário não encontrado");
         }
         if (dto.amount() == null || dto.amount().compareTo(BigDecimal.ZERO) <= 0) {
@@ -406,7 +405,7 @@ public class TransactionService {
         // Busca o usuário pagador pelo senderEmail do DTO
         UserModel sender = userService.findByEmail(dto.senderEmail()).orElseThrow();
 
-        if (sender == null) {
+        if (sender.getEmail() == null) {
             throw new UserNotFoundException("Pagador não encontrado.");
         }
 
