@@ -5,8 +5,10 @@ import com.grupo5.payment_platform.DTOs.PixDTOs.PixReceiverRequestDTO;
 import com.grupo5.payment_platform.DTOs.PixDTOs.PixSenderRequestDTO;
 import com.grupo5.payment_platform.DTOs.PixDTOs.WithdrawRequestDTO;
 import com.grupo5.payment_platform.DTOs.BoletosDTOs.PagBoletoRequestDTO;
+import com.grupo5.payment_platform.Enums.EmailSubject;
 import com.grupo5.payment_platform.Enums.TransactionStatus;
 import com.grupo5.payment_platform.Exceptions.*;
+
 import com.grupo5.payment_platform.Models.Payments.BoletoModel;
 import com.grupo5.payment_platform.Models.Payments.BoletoPaymentDetail;
 import com.grupo5.payment_platform.Models.Payments.PixModel;
@@ -17,6 +19,12 @@ import com.grupo5.payment_platform.Models.card.CreditCardModel;
 import com.grupo5.payment_platform.Models.card.CreditInvoiceModel;
 import com.grupo5.payment_platform.Obsolete.TransactionRequestDTO; // import restaurado
 import com.grupo5.payment_platform.Repositories.*;
+import com.grupo5.payment_platform.Obsolete.TransactionRequestDTO;
+import com.grupo5.payment_platform.Repositories.BoletoRepository;
+import com.grupo5.payment_platform.Repositories.PixPaymentDetailRepository;
+import com.grupo5.payment_platform.Repositories.TransactionRepository;
+import com.grupo5.payment_platform.Repositories.UserRepository;
+
 import com.grupo5.payment_platform.Services.UsersServices.UserService;
 import com.mercadopago.client.payment.PaymentClient;
 import com.mercadopago.client.payment.PaymentCreateRequest;
@@ -35,6 +43,7 @@ import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.Optional;
 
 @Service
 public class TransactionService {
@@ -61,7 +70,7 @@ public class TransactionService {
     }
 
     public TransactionModel depositFunds(DepositRequestDTO dto) {
-        UserModel user = userService.findById(dto.userId());
+        UserModel user = userService.findByEmail(dto.email()).orElseThrow();
         if (user == null) {
             throw new UserNotFoundException("Usuário não encontrado");
         }
@@ -73,6 +82,7 @@ public class TransactionService {
         userRepository.save(user); // Salva o usuario com saldo atualizado
 
         TransactionModel depositTransaction = new TransactionModel();
+
         depositTransaction.setUser(user);
         depositTransaction.setAmount(dto.amount());
         depositTransaction.setDate(LocalDateTime.now());
@@ -85,8 +95,9 @@ public class TransactionService {
     }
 
     public TransactionModel withdrawFunds(WithdrawRequestDTO dto) {
-        UserModel user = userService.findById(dto.userId());
-        if (user == null) {
+        UserModel user = userService.findByEmail(dto.email()).orElseThrow();
+
+        if (user.getEmail() == null) {
             throw new UserNotFoundException("Usuário não encontrado");
         }
         if (dto.amount() == null || dto.amount().compareTo(BigDecimal.ZERO) <= 0) {
@@ -100,6 +111,7 @@ public class TransactionService {
         userRepository.save(user); // Service delega para o Repository
 
         TransactionModel withdrawTransaction = new TransactionModel();
+
         withdrawTransaction.setUser(user);
         withdrawTransaction.setAmount(dto.amount());
         withdrawTransaction.setDate(LocalDateTime.now());
@@ -115,7 +127,7 @@ public class TransactionService {
     public TransactionModel createTransaction(TransactionRequestDTO dto){
 
         UserModel sender = userService.findById(dto.senderId());
-      if (sender == null) {
+      if (sender.getEmail() == null) {
           throw new UserNotFoundException("Sender não encontrado");
       }
 
@@ -155,7 +167,8 @@ public class TransactionService {
     public PixPaymentDetail gerarCobrancaPix(PixReceiverRequestDTO detail) throws MPException, MPApiException {
 
         // Verifica se o receiver existe
-        UserModel receiver = userService.findById(detail.receiverId());
+        UserModel receiver = userService.findByEmail(detail.receiverEmail()).orElseThrow();
+
         BigDecimal amount = detail.amount();
 
         // Valida o valor
@@ -179,6 +192,7 @@ public class TransactionService {
 
         // Cria transação PENDING (sem pagador ainda)
         PixModel transaction = new PixModel();
+
         transaction.setReceiver(receiver);
         transaction.setUser(receiver);
         transaction.setAmount(amount);
@@ -187,9 +201,11 @@ public class TransactionService {
         transaction.setStatus(TransactionStatus.PENDING);
 
         PixPaymentDetail pixDetail = new PixPaymentDetail();
+
         pixDetail.setQrCodeBase64(paymentResponse.getPointOfInteraction().getTransactionData().getQrCodeBase64());
         pixDetail.setQrCodeCopyPaste(paymentResponse.getPointOfInteraction().getTransactionData().getQrCode());
         pixDetail.setMercadoPagoPaymentId(paymentResponse.getId());
+
         transaction.attachDetail(pixDetail); // vincula ambos os lados
 
         transactionRepository.save(transaction); // cascade salva o detail
@@ -216,13 +232,12 @@ public class TransactionService {
             throw new InvalidTransactionAmountException("Essa cobrança já foi paga ou cancelada.");
         }
 
-        UserModel sender = userService.findById(dto.senderId());
+        UserModel sender = userService.findByEmail(dto.senderEmail()).orElseThrow();
 
         // Verifica se o pagador existe
-        if (sender == null) {
+        if (sender.getEmail() == null) {
             throw new UserNotFoundException("Pagador não encontrado.");
         }
-
 
         UserModel receiver = transaction.getReceiver();
         BigDecimal amount = transaction.getAmount();
@@ -239,6 +254,7 @@ public class TransactionService {
         transaction.setUser(sender);
         transaction.setStatus(TransactionStatus.APPROVED);// aprovado quando pago
         transaction.setFinalDate(LocalDateTime.now());
+
         transactionRepository.save(transaction);
 
         return transaction;
@@ -248,7 +264,9 @@ public class TransactionService {
     @Scheduled(fixedRate = 60000)
     public void cancelarPixPendentes() {
         LocalDateTime limite = LocalDateTime.now().minusMinutes(1);
+
         List<TransactionModel> pendentes = transactionRepository.findByStatusAndDateBefore(TransactionStatus.PENDING, limite);
+
         for (TransactionModel transacao : pendentes) {
             transacao.setStatus(TransactionStatus.CANCELLED);
             transactionRepository.save(transacao);
@@ -263,16 +281,22 @@ public class TransactionService {
         if (!boletoTx.isPending()) {
             throw new InvalidTransactionAmountException("Essa cobrança já foi paga ou cancelada.");
         }
+
         UserModel sender = boletoTx.getSender();
         UserModel receiver = boletoTx.getReceiver();
         BigDecimal amount = boletoTx.getAmount();
+
         if (sender.getBalance().compareTo(amount) < 0)
             throw new InsufficientBalanceException("Saldo insuficiente.");
+
         sender.setBalance(sender.getBalance().subtract(amount));
         receiver.setBalance(receiver.getBalance().add(amount));
+
         boletoTx.setStatus(TransactionStatus.APPROVED);
         boletoTx.setFinalDate(LocalDateTime.now());
+
         transactionRepository.save(boletoTx);
+
         return boletoTx;
     }
 
