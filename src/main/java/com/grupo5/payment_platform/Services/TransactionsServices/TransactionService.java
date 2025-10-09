@@ -119,6 +119,8 @@ public class TransactionService {
           throw new UserNotFoundException("Sender não encontrado");
       }
 
+      //apenas cometario
+
       UserModel receiver = userService.findById(dto.receiverId());
       if (receiver == null) {
           throw new UserNotFoundException("Receiver não encontrado");
