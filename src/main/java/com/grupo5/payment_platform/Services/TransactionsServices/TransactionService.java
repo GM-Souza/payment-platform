@@ -5,7 +5,6 @@ import com.grupo5.payment_platform.DTOs.PixDTOs.PixReceiverRequestDTO;
 import com.grupo5.payment_platform.DTOs.PixDTOs.PixSenderRequestDTO;
 import com.grupo5.payment_platform.DTOs.PixDTOs.WithdrawRequestDTO;
 import com.grupo5.payment_platform.DTOs.BoletosDTOs.PagBoletoRequestDTO;
-import com.grupo5.payment_platform.Enums.EmailSubject;
 import com.grupo5.payment_platform.Enums.TransactionStatus;
 import com.grupo5.payment_platform.Exceptions.*;
 
@@ -17,13 +16,8 @@ import com.grupo5.payment_platform.Models.Payments.TransactionModel;
 import com.grupo5.payment_platform.Models.Users.UserModel;
 import com.grupo5.payment_platform.Models.card.CreditCardModel;
 import com.grupo5.payment_platform.Models.card.CreditInvoiceModel;
-import com.grupo5.payment_platform.Obsolete.TransactionRequestDTO; // import restaurado
+import com.grupo5.payment_platform.Obsolete.TransactionRequestDTO; // import para manter o CreateTransaction
 import com.grupo5.payment_platform.Repositories.*;
-import com.grupo5.payment_platform.Obsolete.TransactionRequestDTO;
-import com.grupo5.payment_platform.Repositories.BoletoRepository;
-import com.grupo5.payment_platform.Repositories.PixPaymentDetailRepository;
-import com.grupo5.payment_platform.Repositories.TransactionRepository;
-import com.grupo5.payment_platform.Repositories.UserRepository;
 
 import com.grupo5.payment_platform.Services.UsersServices.UserService;
 import com.mercadopago.client.payment.PaymentClient;
@@ -409,8 +403,8 @@ public class TransactionService {
         BigDecimal amount = pixTx.getAmount();
         BigDecimal valorParcela = amount.divide(BigDecimal.valueOf(parcelas), 2, RoundingMode.HALF_UP);
 
-        // Busca o usuário pagador pelo senderId do DTO
-        UserModel sender = userService.findById(dto.senderId());
+        // Busca o usuário pagador pelo senderEmail do DTO
+        UserModel sender = userService.findByEmail(dto.senderEmail()).orElseThrow();
 
         if (sender == null) {
             throw new UserNotFoundException("Pagador não encontrado.");
