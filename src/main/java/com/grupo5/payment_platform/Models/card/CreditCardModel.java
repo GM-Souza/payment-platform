@@ -34,8 +34,8 @@ public class CreditCardModel{
     @Column(name = "expiration",nullable = false)
     private LocalDate expiration;
 
-    @Column(name = "limit")
-    private BigDecimal limit = BigDecimal.valueOf(10.000);
+    @Column(name = "credit_limit")
+    private BigDecimal creditLimit;
 
     @Column(name = "credit_invoice")
     private BigDecimal creditInvoice;
@@ -50,6 +50,5 @@ public class CreditCardModel{
     @OneToMany(mappedBy = "creditCardId", cascade = CascadeType.ALL)
     private List<CreditInvoiceModel> invoices = new ArrayList<>();
 
-    // @Scheduled(cron = "0 0 2 5 * ?") // todo dia 5 às 02:00 da manhã
 
 }

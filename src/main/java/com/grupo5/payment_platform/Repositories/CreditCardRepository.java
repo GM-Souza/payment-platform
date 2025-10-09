@@ -12,4 +12,6 @@ public interface CreditCardRepository extends JpaRepository<CreditCardModel, UUI
 
     Optional<CreditCardModel> findByUserOwnerId(UserModel userOwnerId);
 
+
+
 }
