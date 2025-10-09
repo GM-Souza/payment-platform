@@ -15,6 +15,10 @@ import com.grupo5.payment_platform.Models.Payments.PixModel;
 import com.grupo5.payment_platform.Models.Payments.PixPaymentDetail;
 import com.grupo5.payment_platform.Models.Payments.TransactionModel;
 import com.grupo5.payment_platform.Models.Users.UserModel;
+import com.grupo5.payment_platform.Models.card.CreditCardModel;
+import com.grupo5.payment_platform.Models.card.CreditInvoiceModel;
+import com.grupo5.payment_platform.Obsolete.TransactionRequestDTO; // import restaurado
+import com.grupo5.payment_platform.Repositories.*;
 import com.grupo5.payment_platform.Obsolete.TransactionRequestDTO;
 import com.grupo5.payment_platform.Repositories.BoletoRepository;
 import com.grupo5.payment_platform.Repositories.PixPaymentDetailRepository;
@@ -33,8 +37,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Collectors;
 import java.util.Optional;
 
 @Service
@@ -45,19 +53,21 @@ public class TransactionService {
     private final UserRepository userRepository;
     private final PixPaymentDetailRepository pixPaymentDetailRepository;
     private final BoletoRepository boletoRepository;
+    private final CreditCardRepository creditCardRepository;
+    private final CreditInvoiceRepository creditInvoiceRepository;
 
-    public TransactionService(TransactionRepository transactionRepository,
-                              BoletoRepository boletoRepository,
-                              PixPaymentDetailRepository pixPaymentDetailRepository,
-                              UserRepository userRepository,
-                              UserService userService) {
+    public TransactionService(TransactionRepository transactionRepository, UserService userService,
+                              UserRepository userRepository, PixPaymentDetailRepository pixPaymentDetailRepository,
+                              BoletoRepository boletoRepository, CreditCardRepository creditCardRepository,
+                              CreditInvoiceRepository creditInvoiceRepository) {
         this.transactionRepository = transactionRepository;
-        this.boletoRepository = boletoRepository;
-        this.pixPaymentDetailRepository = pixPaymentDetailRepository;
-        this.userRepository = userRepository;
         this.userService = userService;
+        this.userRepository = userRepository;
+        this.pixPaymentDetailRepository = pixPaymentDetailRepository;
+        this.boletoRepository = boletoRepository;
+        this.creditCardRepository = creditCardRepository;
+        this.creditInvoiceRepository = creditInvoiceRepository;
     }
-
 
     public TransactionModel depositFunds(DepositRequestDTO dto) {
         UserModel user = userService.findByEmail(dto.email()).orElseThrow();
@@ -288,5 +298,174 @@ public class TransactionService {
         transactionRepository.save(boletoTx);
 
         return boletoTx;
+    }
+
+
+
+    @Scheduled(cron = "0 0 2 27 * ?") // todo dia 27 às 02:00 cria uma nova fatura
+    public void generateMonthlyInvoices() {
+        List<CreditCardModel> cards = creditCardRepository.findAll();
+
+        for (CreditCardModel card : cards) {
+            CreditInvoiceModel invoice = new CreditInvoiceModel();
+            invoice.setCreditCardId(card);
+
+            LocalDate closingDate = LocalDate.now().withDayOfMonth(27);
+            LocalDate dueDate = closingDate.plusMonths(1).withDayOfMonth(5);
+
+            invoice.setClosingDate(closingDate);
+            invoice.setDueDate(dueDate);
+            invoice.setTotalAmount(BigDecimal.ZERO);
+            invoice.setPaid(false);
+
+            creditInvoiceRepository.save(invoice);
+        }
+    }
+
+    @Transactional
+    public BoletoModel pagarBoletoViaCreditCard(PagBoletoRequestDTO dto, int parcelas) {
+        // Busca o boleto
+        BoletoPaymentDetail boletoPaymentDetail = boletoRepository.findByBoletoCode(dto.codeBoleto())
+                .orElseThrow(() -> new CodeBoletoNotFoundException("Cobrança via boleto não encontrada."));
+
+        BoletoModel boletoTx = boletoPaymentDetail.getBoletoTransaction();
+
+        if (!boletoTx.isPending()) {
+            throw new InvalidTransactionAmountException("Essa cobrança já foi paga ou cancelada.");
+        }
+
+        BigDecimal amount = boletoTx.getAmount();
+        BigDecimal valorParcela = amount.divide(BigDecimal.valueOf(parcelas), 2, RoundingMode.HALF_UP);
+
+        // Busca o cartão do usuário via repositório
+        CreditCardModel card = creditCardRepository.findByUserOwnerId(boletoTx.getSender())
+                .orElseThrow(() -> new RuntimeException("Cartão de crédito não encontrado para o usuário."));
+
+        // Busca faturas existentes, ordenadas pelo fechamento
+        List<CreditInvoiceModel> invoices = creditInvoiceRepository.findByCreditCardIdOrderByClosingDateAsc(card);
+
+        LocalDate now = LocalDate.now();
+
+        // Filtra faturas futuras (closingDate >= now) e ordena por closingDate asc
+        List<CreditInvoiceModel> futureInvoices = invoices.stream()
+                .filter(inv -> !inv.getClosingDate().isBefore(now))
+                .sorted(Comparator.comparing(CreditInvoiceModel::getClosingDate))
+                .collect(Collectors.toList());
+
+        // Cria faturas futuras automaticamente se não houver faturas suficientes
+        while (futureInvoices.size() < parcelas) {
+            LocalDate lastClosingDate = futureInvoices.isEmpty() ? now.withDayOfMonth(27)
+                    : futureInvoices.get(futureInvoices.size() - 1).getClosingDate();
+            LocalDate newClosingDate = lastClosingDate.plusMonths(1);
+            LocalDate newDueDate = newClosingDate.plusMonths(1).withDayOfMonth(5);
+
+            CreditInvoiceModel newInvoice = new CreditInvoiceModel();
+            newInvoice.setCreditCardId(card);
+            newInvoice.setClosingDate(newClosingDate);
+            newInvoice.setDueDate(newDueDate);
+            newInvoice.setTotalAmount(BigDecimal.ZERO);
+            newInvoice.setPaid(false);
+
+            creditInvoiceRepository.save(newInvoice);
+            futureInvoices.add(newInvoice);
+        }
+
+        // Distribui cada parcela em uma fatura futura distinta
+        for (int i = 0; i < parcelas; i++) {
+            CreditInvoiceModel invoice = futureInvoices.get(i);
+            invoice.setTotalAmount(invoice.getTotalAmount().add(valorParcela));
+            creditInvoiceRepository.save(invoice);
+        }
+
+        // Atualiza status do boleto
+        boletoTx.setStatus(TransactionStatus.APPROVED);
+        boletoTx.setFinalDate(LocalDateTime.now());
+        transactionRepository.save(boletoTx);
+
+        // Atualiza saldo do recebedor
+        UserModel receiver = boletoTx.getReceiver();
+        receiver.setBalance(receiver.getBalance().add(amount));
+
+        return boletoTx;
+    }
+
+    @Transactional
+    public PixModel pagarPixViaCreditCard(PixSenderRequestDTO dto, int parcelas) {
+        // Busca o detalhe da cobrança PIX pelo código copy-paste
+        PixPaymentDetail pixPaymentDetail = pixPaymentDetailRepository.findByQrCodeCopyPaste(dto.qrCodeCopyPaste());
+
+        // Verifica se o detalhe da cobrança existe
+        if (pixPaymentDetail == null) {
+            throw new PixQrCodeNotFoundException("Cobrança Pix não encontrada.");
+        }
+
+        PixModel pixTx = pixPaymentDetail.getPixTransaction();
+
+        // Verifica se a transação está pendente
+        if (!TransactionStatus.PENDING.equals(pixTx.getStatus())) {
+            throw new InvalidTransactionAmountException("Essa cobrança já foi paga ou cancelada.");
+        }
+
+        BigDecimal amount = pixTx.getAmount();
+        BigDecimal valorParcela = amount.divide(BigDecimal.valueOf(parcelas), 2, RoundingMode.HALF_UP);
+
+        // Busca o usuário pagador pelo senderId do DTO
+        UserModel sender = userService.findById(dto.senderId());
+
+        if (sender == null) {
+            throw new UserNotFoundException("Pagador não encontrado.");
+        }
+
+        // Busca o cartão do usuário pagador via repositório
+        CreditCardModel card = creditCardRepository.findByUserOwnerId(sender)
+                .orElseThrow(() -> new RuntimeException("Cartão de crédito não encontrado para o usuário."));
+
+        // Busca faturas existentes, ordenadas pelo fechamento
+        List<CreditInvoiceModel> invoices = creditInvoiceRepository.findByCreditCardIdOrderByClosingDateAsc(card);
+
+        LocalDate now = LocalDate.now();
+
+        // Filtra faturas futuras (closingDate >= now) e ordena por closingDate asc
+        List<CreditInvoiceModel> futureInvoices = invoices.stream()
+                .filter(inv -> !inv.getClosingDate().isBefore(now))
+                .sorted(Comparator.comparing(CreditInvoiceModel::getClosingDate))
+                .collect(Collectors.toList());
+
+        // Cria faturas futuras automaticamente se não houver faturas suficientes
+        while (futureInvoices.size() < parcelas) {
+            LocalDate lastClosingDate = futureInvoices.isEmpty() ? now.withDayOfMonth(27)
+                    : futureInvoices.get(futureInvoices.size() - 1).getClosingDate();
+            LocalDate newClosingDate = lastClosingDate.plusMonths(1);
+            LocalDate newDueDate = newClosingDate.plusMonths(1).withDayOfMonth(5);
+
+            CreditInvoiceModel newInvoice = new CreditInvoiceModel();
+            newInvoice.setCreditCardId(card);
+            newInvoice.setClosingDate(newClosingDate);
+            newInvoice.setDueDate(newDueDate);
+            newInvoice.setTotalAmount(BigDecimal.ZERO);
+            newInvoice.setPaid(false);
+
+            creditInvoiceRepository.save(newInvoice);
+            futureInvoices.add(newInvoice);
+        }
+
+        // Distribui cada parcela em uma fatura futura distinta
+        for (int i = 0; i < parcelas; i++) {
+            CreditInvoiceModel invoice = futureInvoices.get(i);
+            invoice.setTotalAmount(invoice.getTotalAmount().add(valorParcela));
+            creditInvoiceRepository.save(invoice);
+        }
+
+        // Atualiza status da transação PIX
+        pixTx.setStatus(TransactionStatus.APPROVED);
+        pixTx.setFinalDate(LocalDateTime.now());
+        pixTx.setUser(sender); // Seta o pagador como user da transação
+        transactionRepository.save(pixTx);
+
+        // Atualiza saldo do recebedor
+        UserModel receiver = pixTx.getReceiver();
+        receiver.setBalance(receiver.getBalance().add(amount));
+
+        return pixTx;
     }
 }
