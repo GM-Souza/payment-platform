@@ -37,6 +37,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST,"/individual").permitAll()
                         .requestMatchers(HttpMethod.POST,"/auth/logout").permitAll()
                         .requestMatchers(HttpMethod.POST,"/transactions/generateBoleto").permitAll()
+                        .requestMatchers(HttpMethod.POST,"/transactions/deposito").permitAll()
+                        .requestMatchers(HttpMethod.POST,"/transactions/saque").permitAll()
                         .requestMatchers(HttpMethod.POST,"transactions/pagarBoleto").permitAll()
                         .requestMatchers(HttpMethod.DELETE,"/auth").hasRole("ADMIN")
                         .requestMatchers("/users/**").permitAll()

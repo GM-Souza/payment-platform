@@ -4,6 +4,7 @@ import com.grupo5.payment_platform.Models.Users.UserModel;
 import com.grupo5.payment_platform.Repositories.UserRepository;
 import org.springframework.stereotype.Service;
 
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -15,6 +16,9 @@ public class UserService {
         this.userRepository = userRepository;
     }
 
+    public Optional<UserModel> findByEmail(String email){
+        return userRepository.findByEmail(email);
+    }
     public UserModel findById (UUID id) {
         return userRepository.findUserById(id);
     }
