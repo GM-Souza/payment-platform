@@ -3,5 +3,5 @@ package com.grupo5.payment_platform.DTOs.PixDTOs;
 import java.math.BigDecimal;
 import java.util.UUID;
 
-public record DepositResponseDTO(UUID userId, BigDecimal amount) {
+public record DepositResponseDTO(String email, BigDecimal amount) {
 }

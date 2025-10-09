@@ -1,4 +1,4 @@
-package com.grupo5.payment_platform.Services;
+/*package com.grupo5.payment_platform.Services;
 
 import com.grupo5.payment_platform.Infra.Kafka.TransactionNotificationDTO;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -18,3 +18,4 @@ public class TransactionKafkaService {
         kafkaTemplate.send("payment_order_processed", dto);
     }
 }
+*/
