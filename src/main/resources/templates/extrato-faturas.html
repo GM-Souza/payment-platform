@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Extrato de Faturas em Aberto</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f9f9f9; color: #333; }
+        .header { text-align: center; border-bottom: 2px solid #007bff; padding-bottom: 10px; margin-bottom: 20px; }
+        .header h1 { color: #007bff; margin: 0; }
+        .client-info { background-color: white; padding: 15px; border-radius: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .invoice-section { background-color: white; margin-bottom: 15px; padding: 15px; border-left: 4px solid #007bff; border-radius: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .invoice-header { font-weight: bold; color: #007bff; margin-bottom: 10px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background-color: #f1f1f1; }
+        .total { font-weight: bold; font-size: 1.1em; text-align: right; color: #d9534f; padding: 15px; background-color: #f8f8f8; border-top: 2px solid #007bff; margin-top: 20px; }
+        .no-invoices { text-align: center; color: #666; font-style: italic; }
+    </style>
+</head>
+<body>
+<div class="header">
+    <h1>Extrato de Faturas em Aberto - Cartão de Crédito</h1>
+    <p>Data de Geração: <span th:text="${dataGeracao}"></span></p>
+</div>
+
+<div class="client-info">
+    <strong>Cliente:</strong> <span th:text="${email}"></span>
+</div>
+
+<div th:if="${openInvoices.isEmpty()}">
+    <p class="no-invoices">Nenhuma fatura em aberto no momento.</p>
+</div>
+
+<div th:each="invoice : ${openInvoices}" class="invoice-section">
+    <div class="invoice-header">
+        Fatura # <span th:text="${invoice.id}"></span> - Fechamento: <span th:text="${#temporals.format(invoice.closingDate, 'dd/MM/yyyy')}"></span>
+    </div>
+    <table>
+        <tr>
+            <th>Data de Vencimento</th>
+            <th>Valor Total (R$)</th>
+            <th>Status</th>
+        </tr>
+        <tr>
+            <td th:text="${#temporals.format(invoice.dueDate, 'dd/MM/yyyy')}"></td>
+            <td th:text="${#numbers.formatDecimal(invoice.totalAmount, 1, 2)}"></td>
+            <td><span style="color: #d9534f; font-weight: bold;">Em Aberto</span></td>
+        </tr>
+    </table>
+    <p><small>Detalhes: Fatura fechada em <span th:text="${#temporals.format(invoice.closingDate, 'dd/MM/yyyy')}"></span>. Pague até o vencimento para evitar juros.</small></p>
+</div>
+
+<div th:if="${!openInvoices.isEmpty()}" class="total">
+    <strong>Total em Aberto: R$ <span th:text="${#numbers.formatDecimal(totalAberto, 1, 2)}"></span></strong>
+</div>
+
+<script th:inline="javascript">
+    // Opcional: JS simples para alert se necessário, mas não é essencial
+</script>
+</body>
+</html>

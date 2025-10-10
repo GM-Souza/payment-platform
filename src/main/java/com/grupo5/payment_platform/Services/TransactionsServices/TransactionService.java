@@ -1,5 +1,7 @@
 package com.grupo5.payment_platform.Services.TransactionsServices;
 
+import com.grupo5.payment_platform.DTOs.Cards.CreditCardRequestDTO;
+import com.grupo5.payment_platform.DTOs.Cards.PagCreditCardRequestDTO;
 import com.grupo5.payment_platform.DTOs.PixDTOs.DepositRequestDTO;
 import com.grupo5.payment_platform.DTOs.PixDTOs.PixReceiverRequestDTO;
 import com.grupo5.payment_platform.DTOs.PixDTOs.PixSenderRequestDTO;
@@ -34,8 +36,12 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
+import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
+import java.util.Random;
 import java.util.stream.Collectors;
 
 @Service
@@ -294,30 +300,102 @@ public class TransactionService {
     }
 
 
+    @Transactional
+    public CreditCardModel createCreditCard(CreditCardRequestDTO dto) {
+        UserModel userOwner = userRepository.findByEmail(dto.email()).orElseThrow(()->
+                new RuntimeException("Email not found!"));
 
-    @Scheduled(cron = "0 0 2 27 * ?") // todo dia 27 às 02:00 cria uma nova fatura
-    public void generateMonthlyInvoices() {
-        List<CreditCardModel> cards = creditCardRepository.findAll();
+        // Verifica se o usuário já possui um cartão de crédito
+        Optional<CreditCardModel> existingCard = creditCardRepository.findByUserOwnerId(userOwner);
+        if (existingCard.isPresent()) {
+            throw new RuntimeException("User already has a credit card!");
+        }
 
-        for (CreditCardModel card : cards) {
-            CreditInvoiceModel invoice = new CreditInvoiceModel();
-            invoice.setCreditCardId(card);
+        CreditCardModel card = new CreditCardModel();
 
-            LocalDate closingDate = LocalDate.now().withDayOfMonth(27);
+        // Número e CVV aleatórios (somente para simulação)
+        String creditNumber = String.format("%016d", Math.abs(new Random().nextLong()) % 1_0000_0000_0000_0000L);
+        String cvv = String.format("%03d", new Random().nextInt(1000));
+
+        card.setCreditNumber(creditNumber);
+        card.setCvv(cvv);
+        card.setExpiration(LocalDate.now().plusYears(5));
+        card.setCreditLimit(BigDecimal.valueOf(3_000));
+        card.setCreditInvoice(BigDecimal.ZERO);
+
+        card.setUserOwnerId(userOwner);
+
+        creditCardRepository.save(card);
+
+        LocalDate baseClosingDate = LocalDate.now().withDayOfMonth(27);
+
+        for (int i = 0; i < 12; i++) {
+            LocalDate closingDate = baseClosingDate.plusMonths(i);
             LocalDate dueDate = closingDate.plusMonths(1).withDayOfMonth(5);
 
+            CreditInvoiceModel invoice = new CreditInvoiceModel();
+            invoice.setCreditCardId(card);
             invoice.setClosingDate(closingDate);
             invoice.setDueDate(dueDate);
             invoice.setTotalAmount(BigDecimal.ZERO);
             invoice.setPaid(false);
 
             creditInvoiceRepository.save(invoice);
+            card.getInvoices().add(invoice);
         }
+
+        return card;
     }
+
+    @Scheduled(cron = "0 0 2 27 * ?") // executa dia 27 às 02:00
+    @Transactional
+    public void generateNextMonthInvoices() {
+        List<CreditCardModel> cards = creditCardRepository.findAll();
+
+        for (CreditCardModel card : cards) {
+            CreditInvoiceModel lastInvoice = creditInvoiceRepository
+                    .findTopByCreditCardIdOrderByClosingDateDesc(card)
+                    .orElse(null);
+
+            LocalDate lastClosingDate = (lastInvoice != null)
+                    ? lastInvoice.getClosingDate()
+                    : LocalDate.now().withDayOfMonth(27);
+
+            LocalDate newClosingDate = lastClosingDate.plusMonths(1);
+            LocalDate newDueDate = newClosingDate.plusMonths(1).withDayOfMonth(5);
+
+            boolean alreadyExists = creditInvoiceRepository
+                    .existsByCreditCardIdAndClosingDate(card, newClosingDate);
+
+            if (!alreadyExists) {
+                CreditInvoiceModel newInvoice = new CreditInvoiceModel();
+                newInvoice.setCreditCardId(card);
+                newInvoice.setClosingDate(newClosingDate);
+                newInvoice.setDueDate(newDueDate);
+                newInvoice.setTotalAmount(BigDecimal.ZERO);
+                newInvoice.setPaid(false);
+
+                creditInvoiceRepository.save(newInvoice);
+                card.getInvoices().add(newInvoice);
+            }
+        }
+
+        System.out.println("✅ Faturas futuras geradas com sucesso em " + LocalDate.now());
+    }
+
+    public CreditCardModel getCreditCardByEmail(CreditCardRequestDTO dto) {
+        UserModel user = userRepository.findByEmail(dto.email())
+                .orElseThrow(() -> new RuntimeException("Email not found!"));
+        return creditCardRepository.findByUserOwnerId(user)
+                .orElseThrow(() -> new RuntimeException("Credit card not found for this user!"));
+    }
+
+
+
 
     @Transactional
     public BoletoModel pagarBoletoViaCreditCard(PagBoletoRequestDTO dto, int parcelas) {
-        // Busca o boleto
+        // Busca o boleto pelo código
         BoletoPaymentDetail boletoPaymentDetail = boletoRepository.findByBoletoCode(dto.codeBoleto())
                 .orElseThrow(() -> new CodeBoletoNotFoundException("Cobrança via boleto não encontrada."));
 
@@ -330,48 +408,47 @@ public class TransactionService {
         BigDecimal amount = boletoTx.getAmount();
         BigDecimal valorParcela = amount.divide(BigDecimal.valueOf(parcelas), 2, RoundingMode.HALF_UP);
 
-        // Busca o cartão do usuário via repositório
+        // Busca o cartão do usuário que vai pagar o boleto
         CreditCardModel card = creditCardRepository.findByUserOwnerId(boletoTx.getSender())
                 .orElseThrow(() -> new RuntimeException("Cartão de crédito não encontrado para o usuário."));
 
-        // Busca faturas existentes, ordenadas pelo fechamento
-        List<CreditInvoiceModel> invoices = creditInvoiceRepository.findByCreditCardIdOrderByClosingDateAsc(card);
+        // Limite mensal fixo
+        BigDecimal limiteMensal = card.getCreditLimit();
 
+        // Soma o total já faturado no mês corrente (faturas abertas)
         LocalDate now = LocalDate.now();
+        BigDecimal totalMesAtual = card.getInvoices().stream()
+                .filter(inv -> !inv.isPaid())
+                .filter(inv -> inv.getClosingDate().getMonth().equals(now.getMonth()) &&
+                        inv.getClosingDate().getYear() == now.getYear())
+                .map(CreditInvoiceModel::getTotalAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        // Filtra faturas futuras (closingDate >= now) e ordena por closingDate asc
-        List<CreditInvoiceModel> futureInvoices = invoices.stream()
-                .filter(inv -> !inv.getClosingDate().isBefore(now))
-                .sorted(Comparator.comparing(CreditInvoiceModel::getClosingDate))
-                .collect(Collectors.toList());
+        BigDecimal limiteDisponivel = limiteMensal.subtract(totalMesAtual);
 
-        // Cria faturas futuras automaticamente se não houver faturas suficientes
-        while (futureInvoices.size() < parcelas) {
-            LocalDate lastClosingDate = futureInvoices.isEmpty() ? now.withDayOfMonth(27)
-                    : futureInvoices.get(futureInvoices.size() - 1).getClosingDate();
-            LocalDate newClosingDate = lastClosingDate.plusMonths(1);
-            LocalDate newDueDate = newClosingDate.plusMonths(1).withDayOfMonth(5);
-
-            CreditInvoiceModel newInvoice = new CreditInvoiceModel();
-            newInvoice.setCreditCardId(card);
-            newInvoice.setClosingDate(newClosingDate);
-            newInvoice.setDueDate(newDueDate);
-            newInvoice.setTotalAmount(BigDecimal.ZERO);
-            newInvoice.setPaid(false);
-
-            creditInvoiceRepository.save(newInvoice);
-            futureInvoices.add(newInvoice);
+        // Verifica se o valor cabe no limite disponível
+        if (amount.compareTo(limiteDisponivel) > 0) {
+            throw new RuntimeException("Limite de crédito insuficiente para realizar esta transação.");
         }
 
-        // Distribui cada parcela em uma fatura futura distinta
+        // Busca faturas futuras já existentes
+        List<CreditInvoiceModel> futureInvoices = creditInvoiceRepository
+                .findByCreditCardIdAndClosingDateAfterOrderByClosingDateAsc(card, now);
+
+        if (futureInvoices.size() < parcelas) {
+            throw new RuntimeException("Não há faturas futuras suficientes para distribuir as parcelas.");
+        }
+
+        // Distribui o valor das parcelas nas próximas faturas
         for (int i = 0; i < parcelas; i++) {
             CreditInvoiceModel invoice = futureInvoices.get(i);
             invoice.setTotalAmount(invoice.getTotalAmount().add(valorParcela));
             creditInvoiceRepository.save(invoice);
         }
 
-        // Atualiza status do boleto
+        // Atualiza status e data de finalização do boleto
         boletoTx.setStatus(TransactionStatus.APPROVED);
+        boletoTx.setPaymentType("BOLETO_CREDIT_CARD");
         boletoTx.setFinalDate(LocalDateTime.now());
         transactionRepository.save(boletoTx);
 
@@ -387,14 +464,12 @@ public class TransactionService {
         // Busca o detalhe da cobrança PIX pelo código copy-paste
         PixPaymentDetail pixPaymentDetail = pixPaymentDetailRepository.findByQrCodeCopyPaste(dto.qrCodeCopyPaste());
 
-        // Verifica se o detalhe da cobrança existe
         if (pixPaymentDetail == null) {
             throw new PixQrCodeNotFoundException("Cobrança Pix não encontrada.");
         }
 
         PixModel pixTx = pixPaymentDetail.getPixTransaction();
 
-        // Verifica se a transação está pendente
         if (!TransactionStatus.PENDING.equals(pixTx.getStatus())) {
             throw new InvalidTransactionAmountException("Essa cobrança já foi paga ou cancelada.");
         }
@@ -402,47 +477,42 @@ public class TransactionService {
         BigDecimal amount = pixTx.getAmount();
         BigDecimal valorParcela = amount.divide(BigDecimal.valueOf(parcelas), 2, RoundingMode.HALF_UP);
 
-        // Busca o usuário pagador pelo senderEmail do DTO
-        UserModel sender = userService.findByEmail(dto.senderEmail()).orElseThrow();
+        // Busca o usuário pagador
+        UserModel sender = userService.findByEmail(dto.senderEmail()).orElseThrow(()->
+                new UserNotFoundException("User not found"));
 
-        if (sender.getEmail() == null) {
-            throw new UserNotFoundException("Pagador não encontrado.");
-        }
-
-        // Busca o cartão do usuário pagador via repositório
+        // Busca o cartão do usuário
         CreditCardModel card = creditCardRepository.findByUserOwnerId(sender)
                 .orElseThrow(() -> new RuntimeException("Cartão de crédito não encontrado para o usuário."));
 
-        // Busca faturas existentes, ordenadas pelo fechamento
-        List<CreditInvoiceModel> invoices = creditInvoiceRepository.findByCreditCardIdOrderByClosingDateAsc(card);
+        // Limite mensal fixo
+        BigDecimal limiteMensal = card.getCreditLimit();
 
+        // Soma o total já faturado **no mês corrente** (faturas não pagas do mês atual)
         LocalDate now = LocalDate.now();
+        BigDecimal totalMesAtual = card.getInvoices().stream()
+                .filter(inv -> !inv.isPaid())
+                .filter(inv -> inv.getClosingDate().getMonth().equals(now.getMonth()) &&
+                        inv.getClosingDate().getYear() == now.getYear())
+                .map(CreditInvoiceModel::getTotalAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        // Filtra faturas futuras (closingDate >= now) e ordena por closingDate asc
-        List<CreditInvoiceModel> futureInvoices = invoices.stream()
-                .filter(inv -> !inv.getClosingDate().isBefore(now))
-                .sorted(Comparator.comparing(CreditInvoiceModel::getClosingDate))
-                .collect(Collectors.toList());
+        BigDecimal limiteDisponivel = limiteMensal.subtract(totalMesAtual);
 
-        // Cria faturas futuras automaticamente se não houver faturas suficientes
-        while (futureInvoices.size() < parcelas) {
-            LocalDate lastClosingDate = futureInvoices.isEmpty() ? now.withDayOfMonth(27)
-                    : futureInvoices.get(futureInvoices.size() - 1).getClosingDate();
-            LocalDate newClosingDate = lastClosingDate.plusMonths(1);
-            LocalDate newDueDate = newClosingDate.plusMonths(1).withDayOfMonth(5);
-
-            CreditInvoiceModel newInvoice = new CreditInvoiceModel();
-            newInvoice.setCreditCardId(card);
-            newInvoice.setClosingDate(newClosingDate);
-            newInvoice.setDueDate(newDueDate);
-            newInvoice.setTotalAmount(BigDecimal.ZERO);
-            newInvoice.setPaid(false);
-
-            creditInvoiceRepository.save(newInvoice);
-            futureInvoices.add(newInvoice);
+        // Verifica se o valor total da compra cabe no limite disponível
+        if (amount.compareTo(limiteDisponivel) > 0) {
+            throw new RuntimeException("Limite de crédito insuficiente para realizar esta transação.");
         }
 
-        // Distribui cada parcela em uma fatura futura distinta
+        // Busca faturas futuras já existentes
+        List<CreditInvoiceModel> futureInvoices = creditInvoiceRepository
+                .findByCreditCardIdAndClosingDateAfterOrderByClosingDateAsc(card, now);
+
+        if (futureInvoices.size() < parcelas) {
+            throw new RuntimeException("Não há faturas futuras suficientes para distribuir as parcelas.");
+        }
+
+        // Distribui o valor das parcelas
         for (int i = 0; i < parcelas; i++) {
             CreditInvoiceModel invoice = futureInvoices.get(i);
             invoice.setTotalAmount(invoice.getTotalAmount().add(valorParcela));
@@ -451,8 +521,9 @@ public class TransactionService {
 
         // Atualiza status da transação PIX
         pixTx.setStatus(TransactionStatus.APPROVED);
+        pixTx.setPaymentType("PIX_CREDIT_CARD");
         pixTx.setFinalDate(LocalDateTime.now());
-        pixTx.setUser(sender); // Seta o pagador como user da transação
+        pixTx.setUser(sender);
         transactionRepository.save(pixTx);
 
         // Atualiza saldo do recebedor
@@ -461,4 +532,80 @@ public class TransactionService {
 
         return pixTx;
     }
+
+    @Transactional
+    public CreditInvoiceModel pagarUltimaFaturaComSaldo(PagCreditCardRequestDTO dto) {
+        //  Busca o usuário pelo e-mail
+        UserModel user = userRepository.findByEmail(dto.email())
+                .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
+
+        // Busca o cartão de crédito do usuário
+        CreditCardModel card = creditCardRepository.findByUserOwnerId(user)
+                .orElseThrow(() -> new RuntimeException("Cartão de crédito não encontrado"));
+
+        // Busca a última fatura não paga
+        CreditInvoiceModel invoice = card.getInvoices().stream()
+                .filter(inv -> !inv.isPaid())
+                .max(Comparator.comparing(CreditInvoiceModel::getClosingDate))
+                .orElseThrow(() -> new RuntimeException("Não há faturas pendentes"));
+
+        // Calcula juros de atraso
+        LocalDate hoje = LocalDate.now();
+        BigDecimal totalAPagar = invoice.getTotalAmount();
+        if (hoje.isAfter(invoice.getDueDate())) {
+            long mesesAtraso = ChronoUnit.MONTHS.between(
+                    YearMonth.from(invoice.getDueDate()),
+                    YearMonth.from(hoje)
+            );
+            BigDecimal taxaJurosMensal = new BigDecimal("0.01"); // 1% ao mês
+            BigDecimal juros = totalAPagar.multiply(taxaJurosMensal)
+                    .multiply(BigDecimal.valueOf(mesesAtraso));
+            totalAPagar = totalAPagar.add(juros);
+        }
+
+        // Verifica se o usuário tem saldo suficiente
+        if (user.getBalance().compareTo(totalAPagar) < 0) {
+            throw new RuntimeException("Saldo insuficiente para pagar a fatura. Total devido: " + totalAPagar);
+        }
+
+        // Deduz o valor do saldo do usuário
+        user.setBalance(user.getBalance().subtract(totalAPagar));
+        userRepository.save(user);
+
+        // Atualiza a fatura
+        invoice.setPaid(true);
+        invoice.setTotalAmount(totalAPagar); // já incluindo juros
+        creditInvoiceRepository.save(invoice);
+
+        // Atualiza o cartão (opcional)
+        card.setCreditInvoice(card.getCreditInvoice().subtract(totalAPagar));
+        creditCardRepository.save(card);
+
+        // Cria registro de transação (opcional)
+        TransactionModel tx = new TransactionModel();
+        tx.setUser(user);
+        tx.setAmount(totalAPagar);
+        tx.setDate(LocalDateTime.now());
+        tx.setPaymentType("CREDIT_CARD"); // ou "PAY_CREDIT_CARD"
+        tx.setStatus(TransactionStatus.APPROVED); // ou PENDING se quiser antes de confirmar
+        transactionRepository.save(tx);
+
+        return invoice;
+    }
+
+    public List<CreditInvoiceModel> getOpenInvoicesByEmail(String email) {
+        UserModel user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
+
+        CreditCardModel card = creditCardRepository.findByUserOwnerId(user)
+                .orElseThrow(() -> new RuntimeException("Cartão de crédito não encontrado"));
+
+        return card.getInvoices().stream()
+                .filter(invoice -> !invoice.isPaid())
+                .sorted(Comparator.comparing(CreditInvoiceModel::getClosingDate).reversed())
+                .collect(Collectors.toList());
+    }
+
+
+
 }

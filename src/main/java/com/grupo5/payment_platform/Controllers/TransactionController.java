@@ -1,5 +1,10 @@
 package com.grupo5.payment_platform.Controllers;
 
+import ch.qos.logback.core.model.Model;
+import com.grupo5.payment_platform.DTOs.Cards.CreditCardRequestDTO;
+import com.grupo5.payment_platform.DTOs.Cards.CreditCardResponseDTO;
+import com.grupo5.payment_platform.DTOs.Cards.PagCreditCardRequestDTO;
+import com.grupo5.payment_platform.DTOs.Cards.PagCreditCardResponseDTO;
 import com.grupo5.payment_platform.DTOs.PixDTOs.*;
 import com.grupo5.payment_platform.DTOs.BoletosDTOs.BoletoRequestDTO;
 import com.grupo5.payment_platform.DTOs.BoletosDTOs.PagBoletoRequestDTO;
@@ -10,6 +15,8 @@ import com.grupo5.payment_platform.DTOs.PixDTOs.PixSenderRequestDTO;
 import com.grupo5.payment_platform.DTOs.PixDTOs.PixSenderResponseDTO;
 import com.grupo5.payment_platform.Models.Payments.TransactionModel;
 import com.grupo5.payment_platform.Models.Payments.PixPaymentDetail;
+import com.grupo5.payment_platform.Models.card.CreditCardModel;
+import com.grupo5.payment_platform.Models.card.CreditInvoiceModel;
 import com.grupo5.payment_platform.Obsolete.TransactionRequestDTO;
 import com.grupo5.payment_platform.Services.BoletoServices.BoletoService;
 import com.grupo5.payment_platform.Services.TransactionsServices.TransactionService;
@@ -19,6 +26,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/transactions")
@@ -68,7 +81,7 @@ public class TransactionController {
 
     //Endpoint para pagar via pix
     @PostMapping("/pagar-copy-paste")
-    public ResponseEntity<PixSenderResponseDTO> pagarViaPixCopyPaste(@RequestBody PixSenderRequestDTO request){
+    public ResponseEntity<PixSenderResponseDTO> pagarViaPixCopyPaste(@RequestBody PixSenderRequestDTO request) {
         TransactionModel transacao = transactionService.pagarViaPixCopyPaste(request);
 
         PixSenderResponseDTO response = new PixSenderResponseDTO(transacao.getId(), transacao.getStatus().toString(), transacao.getAmount());
@@ -93,12 +106,66 @@ public class TransactionController {
     }
 
     @PostMapping("/pagarBoleto")
-    public ResponseEntity<PagBoletoResponseDTO> pagarViaPixCopyPaste(@RequestBody PagBoletoRequestDTO request){
+    public ResponseEntity<PagBoletoResponseDTO> pagarViaPixCopyPaste(@RequestBody PagBoletoRequestDTO request) {
         TransactionModel transacao = transactionService.pagarViaCodigoBoleto(request);
 
         PagBoletoResponseDTO response = new PagBoletoResponseDTO(request.codeBoleto());
 
         return ResponseEntity.ok(response);
     }
+
+    @PostMapping("/create-credit-card")
+    public ResponseEntity<CreditCardResponseDTO> createCreditCard(@RequestBody CreditCardRequestDTO request) {
+        // Cria o cartão usando o service
+        CreditCardModel card = transactionService.createCreditCard(request);
+
+        // Constrói o DTO de resposta
+        CreditCardResponseDTO response = new CreditCardResponseDTO(
+                card.getCreditNumber(),
+                card.getCvv(),
+                card.getExpiration().toString(),  // LocalDate -> String
+                card.getCreditLimit().toString()        // BigDecimal -> String
+        );
+
+        return ResponseEntity.ok(response);
+    }
+
+
+
+    @GetMapping("/get-card")
+    public ResponseEntity<CreditCardResponseDTO> getCreditCard(@RequestBody CreditCardRequestDTO request) {
+        // Busca o cartão usando o service
+        CreditCardModel card = transactionService.getCreditCardByEmail(request);
+
+
+        // Constrói o DTO de resposta
+        CreditCardResponseDTO response = new CreditCardResponseDTO(
+                card.getCreditNumber(),
+                card.getCvv(),
+                card.getExpiration().toString(),  // LocalDate -> String
+                card.getCreditLimit().toString()        // BigDecimal -> String
+        );
+        return ResponseEntity.ok(response);
+    }
+
+        @PostMapping("/pagar-fatura-cartao")
+        public ResponseEntity<PagCreditCardResponseDTO> pagarUltimaFatura(@RequestBody PagCreditCardRequestDTO request) {
+            CreditInvoiceModel invoice = transactionService.pagarUltimaFaturaComSaldo(request);
+
+            // Constrói o DTO de resposta
+            PagCreditCardResponseDTO response = new PagCreditCardResponseDTO(
+                    invoice.getId().toString(),
+                    invoice.getCreditCardId().getId().toString(),
+                    invoice.getClosingDate().toString(),
+                    invoice.getTotalAmount().toString(),
+                    String.valueOf(invoice.isPaid())
+            );
+
+            return ResponseEntity.ok(response);
+        }
+
+
+
+
 
 }
