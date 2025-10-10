@@ -13,6 +13,7 @@ import com.grupo5.payment_platform.DTOs.PixDTOs.PixReceiverRequestDTO;
 import com.grupo5.payment_platform.DTOs.PixDTOs.PixReceiverResponseDTO;
 import com.grupo5.payment_platform.DTOs.PixDTOs.PixSenderRequestDTO;
 import com.grupo5.payment_platform.DTOs.PixDTOs.PixSenderResponseDTO;
+import com.grupo5.payment_platform.Models.Payments.BoletoModel;
 import com.grupo5.payment_platform.Models.Payments.TransactionModel;
 import com.grupo5.payment_platform.Models.Payments.PixPaymentDetail;
 import com.grupo5.payment_platform.Models.card.CreditCardModel;
@@ -131,7 +132,6 @@ public class TransactionController {
     }
 
 
-
     @GetMapping("/get-card")
     public ResponseEntity<CreditCardResponseDTO> getCreditCard(@RequestBody CreditCardRequestDTO request) {
         // Busca o cartão usando o service
@@ -165,7 +165,12 @@ public class TransactionController {
         }
 
 
-
+    @PostMapping("/pagar-boleto-cartao")
+    public ResponseEntity<PagBoletoResponseDTO> pagarBoletoViaCartao(@RequestBody PagBoletoRequestDTO request, @RequestParam("parcelas") int parcelas) {
+        BoletoModel boleto = transactionService.pagarBoletoViaCreditCard(request, parcelas);
+        PagBoletoResponseDTO response = new PagBoletoResponseDTO(request.codeBoleto());
+        return ResponseEntity.ok(response);
+    }
 
 
 }
