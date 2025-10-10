@@ -15,6 +15,8 @@ import com.grupo5.payment_platform.Models.Payments.BoletoPaymentDetail;
 import com.grupo5.payment_platform.Models.Payments.PixModel;
 import com.grupo5.payment_platform.Models.Payments.PixPaymentDetail;
 import com.grupo5.payment_platform.Models.Payments.TransactionModel;
+import com.grupo5.payment_platform.Models.Users.IndividualModel;
+import com.grupo5.payment_platform.Models.Users.LegalEntityModel;
 import com.grupo5.payment_platform.Models.Users.UserModel;
 import com.grupo5.payment_platform.Models.card.CreditCardModel;
 import com.grupo5.payment_platform.Models.card.CreditInvoiceModel;
@@ -302,8 +304,8 @@ public class TransactionService {
 
     @Transactional
     public CreditCardModel createCreditCard(CreditCardRequestDTO dto) {
-        UserModel userOwner = userRepository.findByEmail(dto.email()).orElseThrow(()->
-                new RuntimeException("Email not found!"));
+        UserModel userOwner = userRepository.findByEmail(dto.email())
+                .orElseThrow(() -> new RuntimeException("Email not found!"));
 
         // Verifica se o usuário já possui um cartão de crédito
         Optional<CreditCardModel> existingCard = creditCardRepository.findByUserOwnerId(userOwner);
@@ -320,15 +322,22 @@ public class TransactionService {
         card.setCreditNumber(creditNumber);
         card.setCvv(cvv);
         card.setExpiration(LocalDate.now().plusYears(5));
-        card.setCreditLimit(BigDecimal.valueOf(3_000));
         card.setCreditInvoice(BigDecimal.ZERO);
-
         card.setUserOwnerId(userOwner);
+
+        // Define limite baseado no tipo de usuário
+        if (userOwner instanceof IndividualModel individualReceiver) {
+            card.setCreditLimit(BigDecimal.valueOf(3_000));
+        } else if (userOwner instanceof LegalEntityModel legalReceiver) {
+            card.setCreditLimit(BigDecimal.valueOf(6_000));
+        } else {
+            card.setCreditLimit(BigDecimal.valueOf(1_000)); // limite padrão caso outro tipo
+        }
 
         creditCardRepository.save(card);
 
+        // Gera faturas futuras (apenas a partir do mês atual)
         LocalDate baseClosingDate = LocalDate.now().withDayOfMonth(27);
-
         for (int i = 0; i < 12; i++) {
             LocalDate closingDate = baseClosingDate.plusMonths(i);
             LocalDate dueDate = closingDate.plusMonths(1).withDayOfMonth(5);
@@ -534,22 +543,22 @@ public class TransactionService {
     }
 
     @Transactional
-    public CreditInvoiceModel pagarUltimaFaturaComSaldo(PagCreditCardRequestDTO dto) {
-        //  Busca o usuário pelo e-mail
+    public CreditInvoiceModel pagarProximaFatura(PagCreditCardRequestDTO dto) {
+        // 1. Busca o usuário pelo e-mail
         UserModel user = userRepository.findByEmail(dto.email())
                 .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
 
-        // Busca o cartão de crédito do usuário
+        // 2. Busca o cartão de crédito do usuário
         CreditCardModel card = creditCardRepository.findByUserOwnerId(user)
                 .orElseThrow(() -> new RuntimeException("Cartão de crédito não encontrado"));
 
-        // Busca a última fatura não paga
+        // 3. Busca a próxima fatura não paga (mesmo que futura)
         CreditInvoiceModel invoice = card.getInvoices().stream()
                 .filter(inv -> !inv.isPaid())
-                .max(Comparator.comparing(CreditInvoiceModel::getClosingDate))
+                .min(Comparator.comparing(CreditInvoiceModel::getClosingDate)) // pega a mais próxima
                 .orElseThrow(() -> new RuntimeException("Não há faturas pendentes"));
 
-        // Calcula juros de atraso
+        // 4. Calcula juros se estiver vencida
         LocalDate hoje = LocalDate.now();
         BigDecimal totalAPagar = invoice.getTotalAmount();
         if (hoje.isAfter(invoice.getDueDate())) {
@@ -563,36 +572,37 @@ public class TransactionService {
             totalAPagar = totalAPagar.add(juros);
         }
 
-        // Verifica se o usuário tem saldo suficiente
+        // 5. Verifica saldo
         if (user.getBalance().compareTo(totalAPagar) < 0) {
             throw new RuntimeException("Saldo insuficiente para pagar a fatura. Total devido: " + totalAPagar);
         }
 
-        // Deduz o valor do saldo do usuário
+        // 6. Deduz saldo
         user.setBalance(user.getBalance().subtract(totalAPagar));
         userRepository.save(user);
 
-        // Atualiza a fatura
+        // 7. Marca fatura como paga
         invoice.setPaid(true);
-        invoice.setTotalAmount(totalAPagar); // já incluindo juros
+        invoice.setTotalAmount(totalAPagar);
         creditInvoiceRepository.save(invoice);
 
-        // Atualiza o cartão (opcional)
+        // 8. Atualiza cartão
         card.setCreditInvoice(card.getCreditInvoice().subtract(totalAPagar));
         creditCardRepository.save(card);
 
-        // Cria registro de transação (opcional)
+        // 9. Cria transação
         TransactionModel tx = new TransactionModel();
         tx.setUser(user);
         tx.setAmount(totalAPagar);
         tx.setDate(LocalDateTime.now());
-        tx.setPaymentType("CREDIT_CARD"); // ou "PAY_CREDIT_CARD"
-        tx.setStatus(TransactionStatus.APPROVED); // ou PENDING se quiser antes de confirmar
+        tx.setPaymentType("CREDIT_CARD");
+        tx.setStatus(TransactionStatus.APPROVED);
         transactionRepository.save(tx);
 
         return invoice;
     }
 
+    // Para pegar as faturas em aberto de um usuário (sem futuras zeradas)
     public List<CreditInvoiceModel> getOpenInvoicesByEmail(String email) {
         UserModel user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
@@ -600,8 +610,15 @@ public class TransactionService {
         CreditCardModel card = creditCardRepository.findByUserOwnerId(user)
                 .orElseThrow(() -> new RuntimeException("Cartão de crédito não encontrado"));
 
+        LocalDate hoje = LocalDate.now();  // Data atual
+
         return card.getInvoices().stream()
-                .filter(invoice -> !invoice.isPaid())
+                .filter(invoice -> !invoice.isPaid())  // Não paga
+                .filter(invoice -> {
+                    BigDecimal valor = invoice.getTotalAmount();  // Pega o valor
+                    return valor != null && valor.compareTo(BigDecimal.ZERO) > 0;  // > 0 e não null (pra BigDecimal)
+                    // Alternativa se for double: return valor != null && valor > 0.0;
+                })
                 .sorted(Comparator.comparing(CreditInvoiceModel::getClosingDate).reversed())
                 .collect(Collectors.toList());
     }
