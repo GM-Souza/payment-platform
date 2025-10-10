@@ -36,6 +36,7 @@ public class GlobalHandlerException {
         return errorResponseDTO;
     }
 
+    /*
     //Tratamento de exceção para quando o CPF ou CNPJ for duplicado no banco de dados
     @ExceptionHandler(DataIntegrityViolationException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
@@ -58,6 +59,8 @@ public class GlobalHandlerException {
                 LocalDateTime.now()
         );
     }
+
+     */
 
     //Tratamento de exceção para quando o saldo for insuficiente
     @ExceptionHandler(InsufficientBalanceException.class)

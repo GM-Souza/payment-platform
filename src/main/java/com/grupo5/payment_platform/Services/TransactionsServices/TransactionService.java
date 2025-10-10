@@ -260,7 +260,7 @@ public class TransactionService {
     }
 
     // Este metodo é chamado automaticamente pelo Spring, não manualmente
-    @Scheduled(fixedRate = 60000)
+    @Scheduled(fixedRate = 6000000)
     public void cancelarPixPendentes() {
         LocalDateTime limite = LocalDateTime.now().minusMinutes(1);
 

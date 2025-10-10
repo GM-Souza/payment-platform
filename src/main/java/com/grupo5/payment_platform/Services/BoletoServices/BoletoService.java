@@ -19,6 +19,7 @@ import com.lowagie.text.pdf.*;
 import com.google.zxing.*;
 import com.google.zxing.client.j2se.MatrixToImageWriter;
 import com.google.zxing.common.BitMatrix;
+import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 
 import java.awt.*;
@@ -46,12 +47,13 @@ public class BoletoService {
         this.transactionRepository = transactionRepository;
     }
 
+    @Transactional
     public byte[] generateBoletoPdf(BoletoRequestDTO dto) throws Exception {
 
-        UserModel userModelReceiver = userRepository.findByEmail(dto.emailSender()).orElseThrow(() ->
+        UserModel userModelSender = userRepository.findByEmail(dto.emailSender()).orElseThrow(() ->
                 new UserLoginNotFoundException("Sender's email not found"));
 
-        UserModel userModelSender = userRepository.findByEmail(dto.emailReceiver()).orElseThrow(() ->
+        UserModel userModelReceiver = userRepository.findByEmail(dto.emailReceiver()).orElseThrow(() ->
                 new UserLoginNotFoundException("Receiver's email not found"));
 
         Random random = new Random();
@@ -400,7 +402,8 @@ public class BoletoService {
 
         document.close();
 
-        // Criar transação Boleto
+
+        // Criar a transação e o detalhe
         BoletoModel boletoTx = new BoletoModel();
         boletoTx.setReceiver(userModelReceiver);
         boletoTx.setSender(userModelSender);
@@ -409,16 +412,20 @@ public class BoletoService {
         boletoTx.setStatus(TransactionStatus.PENDING);
         boletoTx.setPaymentType("BOLETO");
         boletoTx.setDueDate(LocalDate.parse(vencimentoStr, DateTimeFormatter.ofPattern("dd/MM/yyyy")));
-        // Preenche o campo 'user' da tabela base para não ficar NULL (seguindo padrão Pix: inicialmente o beneficiário)
         boletoTx.setUser(userModelReceiver);
+
+// Criar e associar o detalhe
         BoletoPaymentDetail detail = new BoletoPaymentDetail();
         detail.setBoletoCode(linhaDigitavel);
         detail.setDocumentCode(numeroDocumento);
         detail.setOurNumber(nossoNumero);
-        boletoTx.attachDetail(detail);
+        detail.setBoletoTransaction(boletoTx); // Configura a relação
+        boletoTx.setBoletoPaymentDetail(detail); // Configura a relação bidirecional
 
-        transactionRepository.save(boletoTx); // cascade salva detail
+// Salvar a transação (o cascade persiste o BoletoPaymentDetail)
+        transactionRepository.save(boletoTx);
 
+// Retornar o PDF
         return pdfStream.toByteArray();
     }
 
