@@ -2,7 +2,7 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
-    <title>Extrato de Faturas - Agipay</title>
+    <title>Detalhes da Fatura - Agipay</title>
     <style>
         body {
             font-family: 'Segoe UI', Arial, sans-serif;
@@ -58,7 +58,7 @@
             color: #00b8f0;
         }
 
-        .invoice-section {
+        .parcels-section {
             background-color: #ffffff08;
             border-radius: 10px;
             padding: 15px;
@@ -67,7 +67,7 @@
             box-shadow: 0 2px 8px rgba(0,0,0,0.2);
         }
 
-        .invoice-header {
+        .parcels-header {
             font-weight: 600;
             color: #00b8f0;
             margin-bottom: 8px;
@@ -92,20 +92,7 @@
             font-size: 0.95em;
         }
 
-        .total {
-            font-weight: bold;
-            font-size: 1.2em;
-            text-align: right;
-            color: #fff;
-            margin: 25px auto 0;
-            padding: 8px 16px;
-            background: linear-gradient(90deg, #004aad, #00b8f0);
-            border-radius: 8px;
-            box-shadow: 0 0 8px rgba(0,184,240,0.4);
-            width: fit-content;
-        }
-
-        .no-invoices {
+        .no-parcels {
             text-align: center;
             color: #ccc;
             font-style: italic;
@@ -114,18 +101,31 @@
             border-radius: 10px;
         }
 
-        .details-link {
-            margin-top: 10px;
-            text-align: right;
-        }
-
-        .details-link a {
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
             background: #00b8f0;
             color: white;
-            padding: 6px 12px;
+            padding: 8px 16px;
             border-radius: 4px;
             text-decoration: none;
             font-weight: bold;
+        }
+
+        .pay-button {
+            margin-top: 15px;
+            text-align: right;
+        }
+
+        .pay-button button {
+            background: linear-gradient(90deg, #4CAF50, #00b8f0);
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 0.95em;
         }
 
         footer {
@@ -148,7 +148,7 @@
 <body>
 
 <header>
-    <h1>Extrato de Faturas</h1>
+    <h1>Detalhes da Fatura</h1>
     <div class="brand">agipay</div>
 </header>
 
@@ -158,33 +158,34 @@
         <p><strong>Data de Geração:</strong> <span th:text="${dataGeracao}"></span></p>
     </div>
 
-    <div th:if="${openInvoices.isEmpty()}">
-        <p class="no-invoices">Nenhuma fatura em aberto no momento.</p>
-    </div>
+    <a th:href="@{/credit-card/extrato-faturas(email=${email})}" class="back-link">← Voltar ao Extrato</a>
 
-    <div th:each="invoice : ${openInvoices}" class="invoice-section">
-        <div class="invoice-header">
-            Fechamento: <span th:text="${#temporals.format(invoice.closingDate, 'dd/MM/yyyy')}"></span>
-        </div>
+    <div th:if="${!parcels.isEmpty()}" class="parcels-section">
+        <div class="parcels-header">Parcelas da Fatura</div>
         <table>
             <tr>
-                <th>Data de Vencimento</th>
-                <th>Valor Total (R$)</th>
-                <th>Status</th>
+                <th>Parcela</th>
+                <th>Descrição</th>
+                <th>Valor (R$)</th>
+                <th>Transação Original</th>
             </tr>
-            <tr>
-                <td th:text="${#temporals.format(invoice.dueDate, 'dd/MM/yyyy')}"></td>
-                <td th:text="${#numbers.formatDecimal(invoice.totalAmount, 1, 2)}"></td>
-                <td><span style="color: #ffdf00; font-weight: bold;">Em Aberto</span></td>
+            <tr th:each="parcel : ${parcels}">
+                <td th:text="${parcel.parcelNumber} + ' de ' + ${parcel.totalParcels}"></td>
+                <td th:text="${parcel.description}"></td>
+                <td th:text="${#numbers.formatDecimal(parcel.amount, 1, 2)}"></td>
+                <td th:text="${parcel.originalTransaction.id}"></td>
             </tr>
         </table>
-        <div class="details-link">
-            <a th:href="@{/credit-card/invoice/{id}/details(id=${invoice.id})}">Ver Detalhes das Parcelas</a>
+        <div class="pay-button">
+            <form th:action="@{/credit-card/invoice/{id}/pay(id=${invoiceId})}" method="post">
+                <input type="hidden" name="email" th:value="${email}" />
+                <button type="submit">Pagar Esta Fatura (R$ <span th:text="${#numbers.formatDecimal(invoice.totalAmount, 1, 2)}"></span>)</button>
+            </form>
         </div>
     </div>
 
-    <div th:if="${!openInvoices.isEmpty()}" class="total">
-        Total em Aberto: R$ <span th:text="${#numbers.formatDecimal(totalAberto, 1, 2)}"></span>
+    <div th:if="${parcels.isEmpty()}" class="no-parcels">
+        Nenhuma parcela nesta fatura.
     </div>
 </div>
 

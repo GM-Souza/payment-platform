@@ -150,7 +150,7 @@ public class TransactionController {
 
         @PostMapping("/pagar-fatura-cartao")
         public ResponseEntity<PagCreditCardResponseDTO> pagarUltimaFatura(@RequestBody PagCreditCardRequestDTO request) {
-            CreditInvoiceModel invoice = transactionService.pagarUltimaFaturaComSaldo(request);
+            CreditInvoiceModel invoice = transactionService.pagarProximaFatura(request);
 
             // Constrói o DTO de resposta
             PagCreditCardResponseDTO response = new PagCreditCardResponseDTO(

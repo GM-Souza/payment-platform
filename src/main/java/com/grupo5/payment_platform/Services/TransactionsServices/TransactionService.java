@@ -15,9 +15,12 @@ import com.grupo5.payment_platform.Models.Payments.BoletoPaymentDetail;
 import com.grupo5.payment_platform.Models.Payments.PixModel;
 import com.grupo5.payment_platform.Models.Payments.PixPaymentDetail;
 import com.grupo5.payment_platform.Models.Payments.TransactionModel;
+import com.grupo5.payment_platform.Models.Users.IndividualModel;
+import com.grupo5.payment_platform.Models.Users.LegalEntityModel;
 import com.grupo5.payment_platform.Models.Users.UserModel;
 import com.grupo5.payment_platform.Models.card.CreditCardModel;
 import com.grupo5.payment_platform.Models.card.CreditInvoiceModel;
+import com.grupo5.payment_platform.Models.card.ParcelModel;
 import com.grupo5.payment_platform.Obsolete.TransactionRequestDTO; // import para manter o CreateTransaction
 import com.grupo5.payment_platform.Repositories.*;
 
@@ -38,10 +41,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.temporal.ChronoUnit;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Optional;
-import java.util.Random;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -54,11 +54,12 @@ public class TransactionService {
     private final BoletoRepository boletoRepository;
     private final CreditCardRepository creditCardRepository;
     private final CreditInvoiceRepository creditInvoiceRepository;
+    private final ParcelRepository parcelRepository;
 
     public TransactionService(TransactionRepository transactionRepository, UserService userService,
                               UserRepository userRepository, PixPaymentDetailRepository pixPaymentDetailRepository,
                               BoletoRepository boletoRepository, CreditCardRepository creditCardRepository,
-                              CreditInvoiceRepository creditInvoiceRepository) {
+                              CreditInvoiceRepository creditInvoiceRepository, ParcelRepository parcelRepository) {
         this.transactionRepository = transactionRepository;
         this.userService = userService;
         this.userRepository = userRepository;
@@ -66,6 +67,7 @@ public class TransactionService {
         this.boletoRepository = boletoRepository;
         this.creditCardRepository = creditCardRepository;
         this.creditInvoiceRepository = creditInvoiceRepository;
+        this.parcelRepository = parcelRepository;
     }
 
     public TransactionModel depositFunds(DepositRequestDTO dto) {
@@ -302,8 +304,8 @@ public class TransactionService {
 
     @Transactional
     public CreditCardModel createCreditCard(CreditCardRequestDTO dto) {
-        UserModel userOwner = userRepository.findByEmail(dto.email()).orElseThrow(()->
-                new RuntimeException("Email not found!"));
+        UserModel userOwner = userRepository.findByEmail(dto.email())
+                .orElseThrow(() -> new RuntimeException("Email not found!"));
 
         // Verifica se o usuário já possui um cartão de crédito
         Optional<CreditCardModel> existingCard = creditCardRepository.findByUserOwnerId(userOwner);
@@ -320,15 +322,22 @@ public class TransactionService {
         card.setCreditNumber(creditNumber);
         card.setCvv(cvv);
         card.setExpiration(LocalDate.now().plusYears(5));
-        card.setCreditLimit(BigDecimal.valueOf(3_000));
         card.setCreditInvoice(BigDecimal.ZERO);
-
         card.setUserOwnerId(userOwner);
+
+        // Define limite baseado no tipo de usuário
+        if (userOwner instanceof IndividualModel individualReceiver) {
+            card.setCreditLimit(BigDecimal.valueOf(3_000));
+        } else if (userOwner instanceof LegalEntityModel legalReceiver) {
+            card.setCreditLimit(BigDecimal.valueOf(6_000));
+        } else {
+            card.setCreditLimit(BigDecimal.valueOf(1_000)); // limite padrão caso outro tipo
+        }
 
         creditCardRepository.save(card);
 
+        // Gera faturas futuras (apenas a partir do mês atual)
         LocalDate baseClosingDate = LocalDate.now().withDayOfMonth(27);
-
         for (int i = 0; i < 12; i++) {
             LocalDate closingDate = baseClosingDate.plusMonths(i);
             LocalDate dueDate = closingDate.plusMonths(1).withDayOfMonth(5);
@@ -439,12 +448,33 @@ public class TransactionService {
             throw new RuntimeException("Não há faturas futuras suficientes para distribuir as parcelas.");
         }
 
-        // Distribui o valor das parcelas nas próximas faturas
+        // Distribui o valor das parcelas e cria ParcelModel
         for (int i = 0; i < parcelas; i++) {
             CreditInvoiceModel invoice = futureInvoices.get(i);
+
+            // Cria a parcela
+            ParcelModel parcel = new ParcelModel();
+            parcel.setInvoice(invoice);
+            parcel.setOriginalTransaction(boletoTx); // Linka à transação original
+            parcel.setParcelNumber(i + 1);
+            parcel.setTotalParcels(parcelas);
+            parcel.setAmount(valorParcela);
+            parcel.setDescription("Parcela " + (i + 1) + " de " + parcelas + " do Boleto #" + dto.codeBoleto());
+
+            // Adiciona à fatura (bidirecional)
+            invoice.getParcels().add(parcel);
+            parcelRepository.save(parcel);// Salva a parcela
+
+            // Soma no total (mas recalculará depois)
             invoice.setTotalAmount(invoice.getTotalAmount().add(valorParcela));
             creditInvoiceRepository.save(invoice);
         }
+
+        // Recalcula o total final para cada fatura afetada
+        futureInvoices.forEach(invoice -> {
+            invoice.recalculateTotalAmount();
+            creditInvoiceRepository.save(invoice);
+        });
 
         // Atualiza status e data de finalização do boleto
         boletoTx.setStatus(TransactionStatus.APPROVED);
@@ -455,6 +485,7 @@ public class TransactionService {
         // Atualiza saldo do recebedor
         UserModel receiver = boletoTx.getReceiver();
         receiver.setBalance(receiver.getBalance().add(amount));
+        userRepository.save(receiver); // Assuma save
 
         return boletoTx;
     }
@@ -488,7 +519,7 @@ public class TransactionService {
         // Limite mensal fixo
         BigDecimal limiteMensal = card.getCreditLimit();
 
-        // Soma o total já faturado **no mês corrente** (faturas não pagas do mês atual)
+        // Soma o total já faturado no mês corrente (faturas não pagas do mês atual)
         LocalDate now = LocalDate.now();
         BigDecimal totalMesAtual = card.getInvoices().stream()
                 .filter(inv -> !inv.isPaid())
@@ -512,12 +543,33 @@ public class TransactionService {
             throw new RuntimeException("Não há faturas futuras suficientes para distribuir as parcelas.");
         }
 
-        // Distribui o valor das parcelas
+        // Distribui o valor das parcelas e cria ParcelModel
         for (int i = 0; i < parcelas; i++) {
             CreditInvoiceModel invoice = futureInvoices.get(i);
+
+            // Cria a parcela
+            ParcelModel parcel = new ParcelModel();
+            parcel.setInvoice(invoice);
+            parcel.setOriginalTransaction(pixTx); // Linka à transação original
+            parcel.setParcelNumber(i + 1);
+            parcel.setTotalParcels(parcelas);
+            parcel.setAmount(valorParcela);
+            parcel.setDescription("Parcela " + (i + 1) + " de " + parcelas + " do PIX #" + dto.qrCodeCopyPaste().substring(0, 10) + "..."); // Trunca o código pra description
+
+            // Adiciona à fatura (bidirecional)
+            invoice.getParcels().add(parcel);
+            parcelRepository.save(parcel); // Salva a parcela
+
+            // Soma no total (mas recalculará depois)
             invoice.setTotalAmount(invoice.getTotalAmount().add(valorParcela));
             creditInvoiceRepository.save(invoice);
         }
+
+        // Recalcula o total final para cada fatura afetada
+        futureInvoices.forEach(invoice -> {
+            invoice.recalculateTotalAmount();
+            creditInvoiceRepository.save(invoice);
+        });
 
         // Atualiza status da transação PIX
         pixTx.setStatus(TransactionStatus.APPROVED);
@@ -529,27 +581,28 @@ public class TransactionService {
         // Atualiza saldo do recebedor
         UserModel receiver = pixTx.getReceiver();
         receiver.setBalance(receiver.getBalance().add(amount));
+        userRepository.save(receiver); // Assuma save
 
         return pixTx;
     }
 
     @Transactional
-    public CreditInvoiceModel pagarUltimaFaturaComSaldo(PagCreditCardRequestDTO dto) {
-        //  Busca o usuário pelo e-mail
+    public CreditInvoiceModel pagarProximaFatura(PagCreditCardRequestDTO dto) {
+        // 1. Busca o usuário pelo e-mail
         UserModel user = userRepository.findByEmail(dto.email())
                 .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
 
-        // Busca o cartão de crédito do usuário
+        // 2. Busca o cartão de crédito do usuário
         CreditCardModel card = creditCardRepository.findByUserOwnerId(user)
                 .orElseThrow(() -> new RuntimeException("Cartão de crédito não encontrado"));
 
-        // Busca a última fatura não paga
+        // 3. Busca a próxima fatura não paga (mesmo que futura)
         CreditInvoiceModel invoice = card.getInvoices().stream()
                 .filter(inv -> !inv.isPaid())
-                .max(Comparator.comparing(CreditInvoiceModel::getClosingDate))
+                .min(Comparator.comparing(CreditInvoiceModel::getClosingDate)) // pega a mais próxima
                 .orElseThrow(() -> new RuntimeException("Não há faturas pendentes"));
 
-        // Calcula juros de atraso
+        // 4. Calcula juros se estiver vencida
         LocalDate hoje = LocalDate.now();
         BigDecimal totalAPagar = invoice.getTotalAmount();
         if (hoje.isAfter(invoice.getDueDate())) {
@@ -563,36 +616,108 @@ public class TransactionService {
             totalAPagar = totalAPagar.add(juros);
         }
 
-        // Verifica se o usuário tem saldo suficiente
+        // 5. Verifica saldo
         if (user.getBalance().compareTo(totalAPagar) < 0) {
             throw new RuntimeException("Saldo insuficiente para pagar a fatura. Total devido: " + totalAPagar);
         }
 
-        // Deduz o valor do saldo do usuário
+        // 6. Deduz saldo
         user.setBalance(user.getBalance().subtract(totalAPagar));
         userRepository.save(user);
 
-        // Atualiza a fatura
+        // 7. Marca fatura como paga
         invoice.setPaid(true);
-        invoice.setTotalAmount(totalAPagar); // já incluindo juros
+        invoice.setTotalAmount(totalAPagar);
         creditInvoiceRepository.save(invoice);
 
-        // Atualiza o cartão (opcional)
+        // 8. Atualiza cartão
         card.setCreditInvoice(card.getCreditInvoice().subtract(totalAPagar));
         creditCardRepository.save(card);
 
-        // Cria registro de transação (opcional)
+        // 9. Cria transação
         TransactionModel tx = new TransactionModel();
         tx.setUser(user);
         tx.setAmount(totalAPagar);
         tx.setDate(LocalDateTime.now());
-        tx.setPaymentType("CREDIT_CARD"); // ou "PAY_CREDIT_CARD"
-        tx.setStatus(TransactionStatus.APPROVED); // ou PENDING se quiser antes de confirmar
+        tx.setPaymentType("CREDIT_CARD");
+        tx.setStatus(TransactionStatus.APPROVED);
         transactionRepository.save(tx);
 
         return invoice;
     }
 
+    @Transactional
+    public CreditInvoiceModel pagarFaturaPorId(UUID invoiceId, String email) {  // MUDEI: email direto, sem DTO
+        // 1. Busca o usuário pelo e-mail
+        UserModel user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
+
+        // 2. Busca a fatura específica pelo ID
+        CreditInvoiceModel invoice = creditInvoiceRepository.findById(invoiceId)
+                .orElseThrow(() -> new RuntimeException("Fatura não encontrada"));
+
+        // 3. Busca o cartão de crédito do usuário
+        CreditCardModel card = creditCardRepository.findByUserOwnerId(user)
+                .orElseThrow(() -> new RuntimeException("Cartão de crédito não encontrado"));
+
+        // 4. Verifica se a fatura pertence ao usuário (segurança extra)
+        if (!invoice.getCreditCardId().equals(card)) {  // Assuma getCreditCardId() no model
+            throw new RuntimeException("Fatura não pertence a este usuário.");
+        }
+
+        // 5. Verifica se já está paga
+        if (invoice.isPaid()) {
+            throw new RuntimeException("Esta fatura já foi paga.");
+        }
+
+        // 6. Calcula juros se estiver vencida
+        LocalDate hoje = LocalDate.now();
+        BigDecimal totalAPagar = invoice.getTotalAmount();
+        if (hoje.isAfter(invoice.getDueDate())) {
+            long mesesAtraso = ChronoUnit.MONTHS.between(
+                    YearMonth.from(invoice.getDueDate()),
+                    YearMonth.from(hoje)
+            );
+            BigDecimal taxaJurosMensal = new BigDecimal("0.01"); // 1% ao mês
+            BigDecimal juros = totalAPagar.multiply(taxaJurosMensal)
+                    .multiply(BigDecimal.valueOf(mesesAtraso));
+            totalAPagar = totalAPagar.add(juros);
+        }
+
+        // 7. Verifica saldo
+        if (user.getBalance().compareTo(totalAPagar) < 0) {
+            throw new RuntimeException("Saldo insuficiente para pagar a fatura. Total devido: R$ " + totalAPagar);
+        }
+
+        // 8. Deduz saldo
+        user.setBalance(user.getBalance().subtract(totalAPagar));
+        userRepository.save(user);
+
+        // 9. Marca fatura como paga
+        invoice.setPaid(true);
+        invoice.setTotalAmount(totalAPagar); // Atualiza com juros, se houver
+        creditInvoiceRepository.save(invoice);
+
+        // 10. Atualiza cartão (com check de null)
+        if (card.getCreditInvoice() == null) {
+            card.setCreditInvoice(BigDecimal.ZERO);
+        }
+        card.setCreditInvoice(card.getCreditInvoice().subtract(totalAPagar));
+        creditCardRepository.save(card);
+
+        // 11. Cria transação
+        TransactionModel tx = new TransactionModel();
+        tx.setUser(user);
+        tx.setAmount(totalAPagar);
+        tx.setDate(LocalDateTime.now());
+        tx.setPaymentType("CREDIT_CARD");
+        tx.setStatus(TransactionStatus.APPROVED);
+        transactionRepository.save(tx);
+
+        return invoice;
+    }
+
+    // Para pegar as faturas em aberto de um usuário (sem futuras zeradas)
     public List<CreditInvoiceModel> getOpenInvoicesByEmail(String email) {
         UserModel user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
@@ -600,10 +725,28 @@ public class TransactionService {
         CreditCardModel card = creditCardRepository.findByUserOwnerId(user)
                 .orElseThrow(() -> new RuntimeException("Cartão de crédito não encontrado"));
 
+        LocalDate hoje = LocalDate.now();  // Data atual
+
         return card.getInvoices().stream()
-                .filter(invoice -> !invoice.isPaid())
-                .sorted(Comparator.comparing(CreditInvoiceModel::getClosingDate).reversed())
+                .filter(invoice -> !invoice.isPaid())  // Não paga
+                .filter(invoice -> {
+                    BigDecimal valor = invoice.getTotalAmount();  // Pega o valor
+                    return valor != null && valor.compareTo(BigDecimal.ZERO) > 0;  // > 0 e não null (pra BigDecimal)
+                    // Alternativa se for double: return valor != null && valor > 0.0;
+                })
+                .sorted(Comparator.comparing(CreditInvoiceModel::getDueDate))  // MUDANÇA: Ordena por dueDate crescente (mais próxima de vencimento primeiro)
                 .collect(Collectors.toList());
+    }
+
+    public List<ParcelModel> getInvoiceParcelsById(UUID invoiceId) {
+        CreditInvoiceModel invoice = creditInvoiceRepository.findById(invoiceId)
+                .orElseThrow(() -> new RuntimeException("Fatura não encontrada"));
+        return parcelRepository.findByInvoiceOrderByParcelNumberAsc(invoice); // Assuma método no repo: List<ParcelModel> findByInvoiceOrderByParcelNumberAsc(CreditInvoiceModel invoice);
+    }
+
+    public CreditInvoiceModel getInvoiceById(UUID id) {
+        return creditInvoiceRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Fatura não encontrada"));
     }
 
 

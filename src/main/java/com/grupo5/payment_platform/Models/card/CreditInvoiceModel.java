@@ -8,6 +8,8 @@ import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -37,4 +39,15 @@ public class CreditInvoiceModel {
 
     @Column(name = "paid",nullable = false)
     private boolean paid = false;
+
+
+    @OneToMany(mappedBy = "invoice", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private List<ParcelModel> parcels = new ArrayList<>();
+
+    // Método utilitário pra somar (opcional, pra recalcular totalAmount se precisar)
+    public void recalculateTotalAmount() {
+        this.totalAmount = parcels.stream()
+                .map(ParcelModel::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
 }
