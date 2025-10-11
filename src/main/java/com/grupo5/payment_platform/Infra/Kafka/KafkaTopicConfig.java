@@ -4,12 +4,15 @@ import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.core.KafkaAdmin;
 
 import java.util.HashMap;
 import java.util.Map;
 
+@Configuration
 public class KafkaTopicConfig {
+
 
     @Value("${spring.kafka.bootstrap-servers}")
     private String bootstrapAddress;
@@ -24,18 +27,9 @@ public class KafkaTopicConfig {
     }
 
     @Bean
-    public NewTopic topicOrderProcessed(){
+    public NewTopic topicOrderProcessed() {
         return new NewTopic("payment_order_processed", 2, (short) 1);
     }
 
-    @Bean
-    public NewTopic topicWelcomeEmail() {
-        return new NewTopic("welcome_email", 1, (short) 1);
-    }
-
-    @Bean
-    public NewTopic topicPaymentSucess(){
-        return new NewTopic("payment_success", 1, (short) 1);
-    }
 
 }

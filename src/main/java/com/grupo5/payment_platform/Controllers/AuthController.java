@@ -66,7 +66,7 @@ public class AuthController {
             individual.setPassword(passwordEncoder.encode(individualRequestDTO.password()));
             individual.setBalance(individualRequestDTO.balance());
             TransactionNotificationDTO notify = new TransactionNotificationDTO(individual.getFullname(),individual.getEmail(), EmailSubject.WELCOME);
-            transactionKafkaService.sendWelcomeNotification(notify);
+            transactionKafkaService.sendWelcomeEmailNotification(notify);
             individualRepository.save(individual);
 
             String token = this.tokenService.generateToken(individual);
@@ -86,7 +86,7 @@ public class AuthController {
             legalEntity.setPassword(passwordEncoder.encode(legalEntityRequestDTO.password()));
             legalEntity.setBalance(legalEntityRequestDTO.balance());
             TransactionNotificationDTO notify = new TransactionNotificationDTO(legalEntity.getLegalName(),legalEntity.getEmail(), EmailSubject.WELCOME);
-            transactionKafkaService.sendWelcomeNotification(notify);
+            transactionKafkaService.sendWelcomeEmailNotification(notify);
             legalEntityRepository.save(legalEntity);
 
             String token = this.tokenService.generateToken(legalEntity);

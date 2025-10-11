@@ -164,7 +164,7 @@ public class TransactionService {
         newTransaction.setPaymentType("PIX");
 
         transactionRepository.save(newTransaction);
-        ValueTransactionDTO notify = new ValueTransactionDTO(newTransaction.getUser().getEmail(),newTransaction.getAmount(),newTransaction.getDate(),EmailSubject.PAYMENT_RECEIVED);
+        TransactionNotificationDTO notify = new TransactionNotificationDTO(newTransaction.getUser().getEmail(),newTransaction.getUser().getEmail(),EmailSubject.PAYMENT_RECEIVED);
         transactionKafkaService.sendTransactionNotification(notify);
 
 

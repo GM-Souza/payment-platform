@@ -111,22 +111,17 @@ public class TransactionController {
         // usa o receiver pois em criarCobrancaPix o campo user pode estar null
         String receiverEmail = transacao.getUser() != null ? transacao.getUser().getEmail() : null;
         if (receiverEmail != null) {
-            ValueTransactionDTO notify = new ValueTransactionDTO(
-                    receiverEmail,
-                    transacao.getAmount(),
-                    transacao.getDate() != null ? transacao.getDate() : transacao.getDate(),
-                    EmailSubject.PAYMENT_RECEIVED
+            TransactionNotificationDTO notify = new TransactionNotificationDTO(receiverEmail, receiverEmail,EmailSubject.PAYMENT_RECEIVED
             );
             transactionKafkaService.sendTransactionNotification(notify);
         }
 
-        ValueTransactionDTO notify2 = new ValueTransactionDTO(
+        TransactionNotificationDTO notify2 = new TransactionNotificationDTO(
                 request.senderEmail(),
-                transacao.getAmount(),
-                transacao.getDate() != null ? transacao.getDate() : transacao.getDate(),
+                request.senderEmail(),
                 EmailSubject.PAYMENT_SUCESS
         );
-        transactionKafkaService.sendPaymentSuccessNotification(notify2);
+        transactionKafkaService.sendTransactionNotification(notify2);
 
         return ResponseEntity.ok(response);
     }
