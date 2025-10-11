@@ -19,7 +19,7 @@ public class GlobalHandlerException {
     public ErrorResponseDTO IndividualNotFoundException(IndividualNotFoundException ex){
         ErrorResponseDTO errorResponseDTO = new ErrorResponseDTO(
                 ex.getMessage(),
-                "Não foi possível localizar o ID fornecido para a conta da Entidade. Verifique o valor e tente novamente.",
+                "Não foi possível localizar o Email fornecido para a conta da Entidade. Verifique o valor e tente novamente.",
                 LocalDateTime.now()
         );
         return errorResponseDTO;
@@ -30,37 +30,11 @@ public class GlobalHandlerException {
     public ErrorResponseDTO LegalEntityNotFoundException(LegalEntityNotFoundException ex){
         ErrorResponseDTO errorResponseDTO = new ErrorResponseDTO(
                 ex.getMessage(),
-                "Não foi possível localizar o ID fornecido para a conta da Entidade. Verifique o valor e tente novamente.",
+                "Não foi possível localizar o Email fornecido para a conta da Entidade. Verifique o valor e tente novamente.",
                 LocalDateTime.now()
         );
         return errorResponseDTO;
     }
-
-    /*
-    //Tratamento de exceção para quando o CPF ou CNPJ for duplicado no banco de dados
-    @ExceptionHandler(DataIntegrityViolationException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ErrorResponseDTO handleDataIntegrity(DataIntegrityViolationException ex) {
-
-        String detailMessage = "Os dados são inválidos ou já existem.";
-
-        //Se o cpf ou CNPJ estiver duplicado, o Banco de dados devolverá uma mensagem que contem a palavra CPF ou CNPJ
-        //criamos um metodo para ler esta mensagem do BD e alterar nosso erro se perceber que o erro se trata de CPF ou CNPJ
-        String causeMessage = ex.getMostSpecificCause().getMessage().toLowerCase();
-        if (causeMessage.contains("cpf")) {
-            detailMessage = "O CPF fornecido já existe.";
-        } else if (causeMessage.contains("cnpj")) {
-            detailMessage = "O CNPJ fornecido já existe.";
-        }
-
-        return new ErrorResponseDTO(
-                "Conflito: ",
-                detailMessage,
-                LocalDateTime.now()
-        );
-    }
-
-     */
 
     //Tratamento de exceção para quando o saldo for insuficiente
     @ExceptionHandler(InsufficientBalanceException.class)

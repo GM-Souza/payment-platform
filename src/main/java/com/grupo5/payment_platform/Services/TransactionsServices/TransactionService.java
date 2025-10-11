@@ -71,11 +71,8 @@ public class TransactionService {
     }
 
     public TransactionModel depositFunds(DepositRequestDTO dto) {
-        UserModel user = userService.findByEmail(dto.email()).orElseThrow();
-
-        if (user.getEmail() == null) {
-            throw new UserNotFoundException("Usuário não encontrado");
-        }
+        UserModel user = userService.findByEmail(dto.email())
+                .orElseThrow(() -> new UserNotFoundException("Usuário não encontrado"));
 
         if (dto.amount() == null || dto.amount().compareTo(BigDecimal.ZERO) <= 0) {
             throw new InvalidTransactionAmountException("O valor do depósito deve ser maior que zero.");
@@ -98,11 +95,9 @@ public class TransactionService {
     }
 
     public TransactionModel withdrawFunds(WithdrawRequestDTO dto) {
-        UserModel user = userService.findByEmail(dto.email()).orElseThrow();
 
-        if (user.getEmail() == null) {
-            throw new UserNotFoundException("Usuário não encontrado");
-        }
+        UserModel user = userService.findByEmail(dto.email())
+                .orElseThrow(() -> new UserNotFoundException("Usuário não encontrado"));
 
         if (dto.amount() == null || dto.amount().compareTo(BigDecimal.ZERO) <= 0) {
             throw new InvalidTransactionAmountException("O valor do saque deve ser maior que zero.");
@@ -131,15 +126,11 @@ public class TransactionService {
     // CRIAR TRANSAÇÃO PIX SIMPLES
     public TransactionModel createTransaction(TransactionRequestDTO dto){
 
-        UserModel sender = userService.findByEmail(dto.senderEmail()).orElseThrow();
-      if (sender.getEmail() == null) {
-          throw new UserNotFoundException("Sender não encontrado");
-      }
+        UserModel sender = userService.findByEmail(dto.senderEmail())
+                .orElseThrow(() -> new UserNotFoundException("Email do remetente não encontrado"));
 
-      UserModel receiver = userService.findByEmail(dto.receiverEmail()).orElseThrow();
-      if (receiver.getEmail() == null) {
-          throw new UserNotFoundException("Receiver não encontrado");
-      }
+      UserModel receiver = userService.findByEmail(dto.receiverEmail())
+              .orElseThrow(() -> new UserNotFoundException("Email do destinatário não encontrado"));
 
         if (dto.amount() == null || dto.amount().compareTo(BigDecimal.ZERO) <= 0) {
             throw new InvalidTransactionAmountException("O valor da transação deve ser maior que zero.");
@@ -176,7 +167,8 @@ public class TransactionService {
     public PixPaymentDetail gerarCobrancaPix(PixReceiverRequestDTO detail) throws MPException, MPApiException {
 
         // Verifica se o receiver existe
-        UserModel receiver = userService.findByEmail(detail.receiverEmail()).orElseThrow();
+        UserModel receiver = userService.findByEmail(detail.receiverEmail()).orElseThrow(() ->
+                new UserNotFoundException("Usuário não encontrado."));
 
         BigDecimal amount = detail.amount();
 
