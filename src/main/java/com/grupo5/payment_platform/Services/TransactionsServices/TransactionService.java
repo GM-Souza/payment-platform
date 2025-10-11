@@ -621,6 +621,11 @@ public class TransactionService {
             throw new RuntimeException("Saldo insuficiente para pagar a fatura. Total devido: " + totalAPagar);
         }
 
+        // 5.1 exige que a fatura já tenha sido fechada (closingDate <= hoje)
+        if (invoice.getClosingDate().isAfter(hoje)) {
+            throw new RuntimeException("Não é permitido pagar uma fatura antes do seu fechamento.");
+        }
+
         // 6. Deduz saldo
         user.setBalance(user.getBalance().subtract(totalAPagar));
         userRepository.save(user);
@@ -666,12 +671,18 @@ public class TransactionService {
         }
 
         // 5. Verifica se já está paga
+
         if (invoice.isPaid()) {
             throw new RuntimeException("Esta fatura já foi paga.");
         }
 
-        // 6. Calcula juros se estiver vencida
+        // 5.1 exige que a fatura já tenha sido fechada (closingDate <= hoje)
         LocalDate hoje = LocalDate.now();
+        if (invoice.getClosingDate().isAfter(hoje)) {
+            throw new RuntimeException("Não é permitido pagar uma fatura antes do seu fechamento.");
+        }
+
+        // 6. Calcula juros se estiver vencida
         BigDecimal totalAPagar = invoice.getTotalAmount();
         if (hoje.isAfter(invoice.getDueDate())) {
             long mesesAtraso = ChronoUnit.MONTHS.between(
