@@ -4,9 +4,9 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-public record TransactionRequestDTO(UUID senderId, BigDecimal amount, UUID receiverId, LocalDateTime date) {
+public record TransactionRequestDTO(String senderEmail, BigDecimal amount, String receiverEmail, LocalDateTime date) {
 
-    public TransactionRequestDTO(UUID senderId, BigDecimal amount, UUID receiverId) {
-        this(senderId, amount, receiverId, LocalDateTime.now());
+    public TransactionRequestDTO(String senderEmail, BigDecimal amount, String receiverEmail) {
+        this(senderEmail, amount, receiverEmail, LocalDateTime.now());
     }
 }

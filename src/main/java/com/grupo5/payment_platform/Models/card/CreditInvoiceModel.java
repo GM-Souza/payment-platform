@@ -40,11 +40,10 @@ public class CreditInvoiceModel {
     @Column(name = "paid",nullable = false)
     private boolean paid = false;
 
-
     @OneToMany(mappedBy = "invoice", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<ParcelModel> parcels = new ArrayList<>();
 
-    // Método utilitário pra somar (opcional, pra recalcular totalAmount se precisar)
+    // Metodo utilitário pra somar (opcional, pra recalcular totalAmount se precisar)
     public void recalculateTotalAmount() {
         this.totalAmount = parcels.stream()
                 .map(ParcelModel::getAmount)
