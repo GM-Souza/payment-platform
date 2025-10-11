@@ -14,6 +14,7 @@ import com.grupo5.payment_platform.DTOs.PixDTOs.PixReceiverResponseDTO;
 import com.grupo5.payment_platform.DTOs.PixDTOs.PixSenderRequestDTO;
 import com.grupo5.payment_platform.DTOs.PixDTOs.PixSenderResponseDTO;
 import com.grupo5.payment_platform.Models.Payments.BoletoModel;
+import com.grupo5.payment_platform.Models.Payments.PixModel;
 import com.grupo5.payment_platform.Models.Payments.TransactionModel;
 import com.grupo5.payment_platform.Models.Payments.PixPaymentDetail;
 import com.grupo5.payment_platform.Models.card.CreditCardModel;
@@ -164,6 +165,47 @@ public class TransactionController {
         return ResponseEntity.ok(response);
     }
 
+    @PostMapping("/pagar-boleto-cartao")
+    public ResponseEntity<PagBoletoResponseDTO> pagarBoletoViaCartao(@RequestBody PagBoletoRequestDTO request, @RequestParam("parcelas") int parcelas) {
+        BoletoModel boleto = transactionService.pagarBoletoViaCreditCard(request, parcelas);
+        PagBoletoResponseDTO response = new PagBoletoResponseDTO(request.codeBoleto());
+        return ResponseEntity.ok(response);
+    }
+
+    //método utilizando o service do mercado Pago
+    @PostMapping("/pagar-pix-cartao-mercado-pago")
+    public ResponseEntity<PixSenderResponseDTO> pagarPixViaCartaoMercadoPago(
+            @RequestBody PixSenderRequestDTO dto,
+            @RequestParam("parcelas") int parcelas) {
+
+        // Chama o serviço que contém a lógica de pagamento
+        PixModel transacao = transactionService.pagarPixViaCreditCard(dto, parcelas);
+
+        // Monta a resposta com os dados principais da transação
+        PixSenderResponseDTO response = new PixSenderResponseDTO(
+                transacao.getId(),
+                transacao.getStatus().toString(),
+                transacao.getAmount()
+        );
+
+        return ResponseEntity.ok(response);
+    }
+
+    //método utilizando o Pixbackup
+    @PostMapping("/pagar-pix-cartao")
+    public ResponseEntity<PixSenderResponseDTO> pagarPixViaCartao(
+            @RequestBody PixSenderRequestDTO dto,
+            @RequestParam("parcelas") int parcelas) {
+
+        PixModel transacao = pixBackupService.pagarPixViaCreditCard(dto, parcelas);
+
+        PixSenderResponseDTO response = new PixSenderResponseDTO(transacao.getId(), transacao.getStatus().toString(), transacao.getAmount());
+
+        return ResponseEntity.ok(response);
+    }
+
+
+
         @PostMapping("/pagar-fatura-cartao")
         public ResponseEntity<PagCreditCardResponseDTO> pagarUltimaFatura(@RequestBody PagCreditCardRequestDTO request) {
             CreditInvoiceModel invoice = transactionService.pagarProximaFatura(request);
@@ -181,12 +223,7 @@ public class TransactionController {
         }
 
 
-    @PostMapping("/pagar-boleto-cartao")
-    public ResponseEntity<PagBoletoResponseDTO> pagarBoletoViaCartao(@RequestBody PagBoletoRequestDTO request, @RequestParam("parcelas") int parcelas) {
-        BoletoModel boleto = transactionService.pagarBoletoViaCreditCard(request, parcelas);
-        PagBoletoResponseDTO response = new PagBoletoResponseDTO(request.codeBoleto());
-        return ResponseEntity.ok(response);
-    }
+
 
 
 }

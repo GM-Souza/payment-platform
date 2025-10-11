@@ -44,6 +44,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST,"transactions/pagar-boleto-cartao").permitAll()
                         .requestMatchers(HttpMethod.GET,"transactions/get-card").permitAll()
                         .requestMatchers(HttpMethod.POST,"transactions/pagar-fatura-cartao").permitAll()
+                        .requestMatchers(HttpMethod.POST,"transactions/pagar-pix-cartao").permitAll()
                         .requestMatchers(HttpMethod.DELETE,"/auth").hasRole("ADMIN")
                         .requestMatchers("/users/**").permitAll()
                         .requestMatchers("/swagger-ui/**").permitAll()
