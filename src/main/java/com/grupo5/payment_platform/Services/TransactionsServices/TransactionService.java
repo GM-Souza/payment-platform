@@ -7,9 +7,11 @@ import com.grupo5.payment_platform.DTOs.PixDTOs.PixReceiverRequestDTO;
 import com.grupo5.payment_platform.DTOs.PixDTOs.PixSenderRequestDTO;
 import com.grupo5.payment_platform.DTOs.PixDTOs.WithdrawRequestDTO;
 import com.grupo5.payment_platform.DTOs.BoletosDTOs.PagBoletoRequestDTO;
+import com.grupo5.payment_platform.Enums.EmailSubject;
 import com.grupo5.payment_platform.Enums.TransactionStatus;
 import com.grupo5.payment_platform.Exceptions.*;
 
+import com.grupo5.payment_platform.Infra.Kafka.TransactionNotificationDTO;
 import com.grupo5.payment_platform.Models.Payments.BoletoModel;
 import com.grupo5.payment_platform.Models.Payments.BoletoPaymentDetail;
 import com.grupo5.payment_platform.Models.Payments.PixModel;
@@ -24,6 +26,7 @@ import com.grupo5.payment_platform.Models.card.ParcelModel;
 import com.grupo5.payment_platform.Obsolete.TransactionRequestDTO; // import para manter o CreateTransaction
 import com.grupo5.payment_platform.Repositories.*;
 
+import com.grupo5.payment_platform.Services.TransactionKafkaService;
 import com.grupo5.payment_platform.Services.UsersServices.UserService;
 import com.mercadopago.client.payment.PaymentClient;
 import com.mercadopago.client.payment.PaymentCreateRequest;
@@ -55,11 +58,12 @@ public class TransactionService {
     private final CreditCardRepository creditCardRepository;
     private final CreditInvoiceRepository creditInvoiceRepository;
     private final ParcelRepository parcelRepository;
+    private final TransactionKafkaService transactionKafkaService;
 
     public TransactionService(TransactionRepository transactionRepository, UserService userService,
                               UserRepository userRepository, PixPaymentDetailRepository pixPaymentDetailRepository,
                               BoletoRepository boletoRepository, CreditCardRepository creditCardRepository,
-                              CreditInvoiceRepository creditInvoiceRepository, ParcelRepository parcelRepository) {
+                              CreditInvoiceRepository creditInvoiceRepository, ParcelRepository parcelRepository, TransactionKafkaService transactionKafkaService) {
         this.transactionRepository = transactionRepository;
         this.userService = userService;
         this.userRepository = userRepository;
@@ -68,6 +72,7 @@ public class TransactionService {
         this.creditCardRepository = creditCardRepository;
         this.creditInvoiceRepository = creditInvoiceRepository;
         this.parcelRepository = parcelRepository;
+        this.transactionKafkaService = transactionKafkaService;
     }
 
     public TransactionModel depositFunds(DepositRequestDTO dto) {
@@ -158,6 +163,9 @@ public class TransactionService {
         newTransaction.setPaymentType("PIX");
 
         transactionRepository.save(newTransaction);
+        TransactionNotificationDTO notify = new TransactionNotificationDTO(newTransaction.getUser().getEmail(),newTransaction.getUser().getEmail(),EmailSubject.PAYMENT_RECEIVED);
+        transactionKafkaService.sendTransactionNotification(notify);
+
 
         return newTransaction;
     }
@@ -351,6 +359,7 @@ public class TransactionService {
 
             creditInvoiceRepository.save(invoice);
             card.getInvoices().add(invoice);
+            //aqui ou no return
         }
 
         return card;
@@ -484,6 +493,8 @@ public class TransactionService {
         receiver.setBalance(receiver.getBalance().add(amount));
         userRepository.save(receiver); // Assuma save
 
+        //TODO kafka email - para o receiver
+
         return boletoTx;
     }
 
@@ -579,6 +590,8 @@ public class TransactionService {
         UserModel receiver = pixTx.getReceiver();
         receiver.setBalance(receiver.getBalance().add(amount));
         userRepository.save(receiver); // Assuma save
+
+        //TODO kafka email - para o receiver
 
         return pixTx;
     }
@@ -721,6 +734,8 @@ public class TransactionService {
         tx.setPaymentType("CREDIT_CARD");
         tx.setStatus(TransactionStatus.APPROVED);
         transactionRepository.save(tx);
+
+        //TODO kafka email para usuario quando pagar fatura
 
         return invoice;
     }

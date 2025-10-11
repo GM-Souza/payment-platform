@@ -4,7 +4,9 @@ import com.grupo5.payment_platform.DTOs.AuthDTOs.IndividualRequestDTO;
 import com.grupo5.payment_platform.DTOs.AuthDTOs.LegalEntityRequestDTO;
 import com.grupo5.payment_platform.DTOs.AuthDTOs.LoginRequestDTO;
 import com.grupo5.payment_platform.DTOs.AuthDTOs.LoginResponseDTO;
+import com.grupo5.payment_platform.Enums.EmailSubject;
 import com.grupo5.payment_platform.Exceptions.UserLoginNotFoundException;
+import com.grupo5.payment_platform.Infra.Kafka.TransactionNotificationDTO;
 import com.grupo5.payment_platform.Infra.Security.TokenService;
 import com.grupo5.payment_platform.Models.Users.IndividualModel;
 import com.grupo5.payment_platform.Models.Users.LegalEntityModel;
@@ -12,6 +14,7 @@ import com.grupo5.payment_platform.Models.Users.UserModel;
 import com.grupo5.payment_platform.Repositories.IndividualRepository;
 import com.grupo5.payment_platform.Repositories.LegalEntityRepository;
 import com.grupo5.payment_platform.Repositories.UserRepository;
+import com.grupo5.payment_platform.Services.TransactionKafkaService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -30,13 +33,15 @@ public class AuthController {
     private final TokenService tokenService;
     private final IndividualRepository individualRepository;
     private final LegalEntityRepository legalEntityRepository;
+    private final TransactionKafkaService transactionKafkaService;
 
-    public AuthController(UserRepository userRepository, PasswordEncoder passwordEncoder, TokenService tokenService, IndividualRepository individualRepository, LegalEntityRepository legalEntityRepository) {
+    public AuthController(UserRepository userRepository, PasswordEncoder passwordEncoder, TokenService tokenService, IndividualRepository individualRepository, LegalEntityRepository legalEntityRepository, TransactionKafkaService transactionKafkaService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.tokenService = tokenService;
         this.individualRepository = individualRepository;
         this.legalEntityRepository = legalEntityRepository;
+        this.transactionKafkaService = transactionKafkaService;
     }
 
     @PostMapping("/login")
@@ -60,6 +65,8 @@ public class AuthController {
             individual.setEmail(individualRequestDTO.email());
             individual.setPassword(passwordEncoder.encode(individualRequestDTO.password()));
             individual.setBalance(individualRequestDTO.balance());
+            TransactionNotificationDTO notify = new TransactionNotificationDTO(individual.getFullname(),individual.getEmail(), EmailSubject.WELCOME);
+            transactionKafkaService.sendWelcomeNotification(notify);
             individualRepository.save(individual);
 
             String token = this.tokenService.generateToken(individual);
@@ -78,6 +85,8 @@ public class AuthController {
             legalEntity.setEmail(legalEntityRequestDTO.email());
             legalEntity.setPassword(passwordEncoder.encode(legalEntityRequestDTO.password()));
             legalEntity.setBalance(legalEntityRequestDTO.balance());
+            TransactionNotificationDTO notify = new TransactionNotificationDTO(legalEntity.getLegalName(),legalEntity.getEmail(), EmailSubject.WELCOME);
+            transactionKafkaService.sendTransactionNotification(notify);
             legalEntityRepository.save(legalEntity);
 
             String token = this.tokenService.generateToken(legalEntity);
