@@ -195,7 +195,7 @@ public class TransactionService {
         PixModel transaction = new PixModel();
 
         transaction.setReceiver(receiver);
-        transaction.setUser(receiver);
+        transaction.setUser(null);
         transaction.setAmount(amount);
         transaction.setDate(LocalDateTime.now());
         transaction.setPaymentType("PIX");

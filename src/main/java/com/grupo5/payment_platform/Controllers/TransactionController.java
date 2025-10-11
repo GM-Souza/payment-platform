@@ -20,6 +20,7 @@ import com.grupo5.payment_platform.Models.card.CreditCardModel;
 import com.grupo5.payment_platform.Models.card.CreditInvoiceModel;
 import com.grupo5.payment_platform.Obsolete.TransactionRequestDTO;
 import com.grupo5.payment_platform.Services.BoletoServices.BoletoService;
+import com.grupo5.payment_platform.Services.TransactionsServices.PixBackupService;
 import com.grupo5.payment_platform.Services.TransactionsServices.TransactionService;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpHeaders;
@@ -40,10 +41,12 @@ public class TransactionController {
 
     private final TransactionService transactionService;
     private final BoletoService boletoService;
+    private final PixBackupService pixBackupService;
 
-    public TransactionController(TransactionService transactionService, BoletoService boletoService) {
+    public TransactionController(TransactionService transactionService, BoletoService boletoService, PixBackupService pixBackupService) {
         this.transactionService = transactionService;
         this.boletoService = boletoService;
+        this.pixBackupService = pixBackupService;
     }
 
     //Endpoint para metodo de transferencia interna p2p
@@ -70,6 +73,19 @@ public class TransactionController {
     public ResponseEntity<PixReceiverResponseDTO> createPixTransaction(@RequestBody PixReceiverRequestDTO dto) throws Exception {
         PixPaymentDetail pixDetail = transactionService.gerarCobrancaPix(dto);
 
+        //Montando o response DTO
+        PixReceiverResponseDTO response = new PixReceiverResponseDTO(
+                pixDetail.getPixTransaction().getId(),
+                pixDetail.getPixTransaction().getStatus().toString(), // PENDING
+                pixDetail.getQrCodeBase64(), pixDetail.getQrCodeCopyPaste()
+        );
+
+        return ResponseEntity.ok(response);
+    }
+    //Endpoint para gerar cobrança pix(Backup)
+    @PostMapping("/pix/backup")
+    public ResponseEntity<PixReceiverResponseDTO> createPixTransactionBackup(@RequestBody PixReceiverRequestDTO dto) throws Exception {
+        PixPaymentDetail pixDetail = pixBackupService.criarCobrancaPix(dto);
         //Montando o response DTO
         PixReceiverResponseDTO response = new PixReceiverResponseDTO(
                 pixDetail.getPixTransaction().getId(),
