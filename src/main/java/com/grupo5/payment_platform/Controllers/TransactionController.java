@@ -13,6 +13,9 @@ import com.grupo5.payment_platform.DTOs.PixDTOs.PixReceiverRequestDTO;
 import com.grupo5.payment_platform.DTOs.PixDTOs.PixReceiverResponseDTO;
 import com.grupo5.payment_platform.DTOs.PixDTOs.PixSenderRequestDTO;
 import com.grupo5.payment_platform.DTOs.PixDTOs.PixSenderResponseDTO;
+import com.grupo5.payment_platform.Enums.EmailSubject;
+import com.grupo5.payment_platform.Infra.Kafka.TransactionNotificationDTO;
+import com.grupo5.payment_platform.Infra.Kafka.ValueTransactionDTO;
 import com.grupo5.payment_platform.Models.Payments.BoletoModel;
 import com.grupo5.payment_platform.Models.Payments.TransactionModel;
 import com.grupo5.payment_platform.Models.Payments.PixPaymentDetail;
@@ -20,6 +23,7 @@ import com.grupo5.payment_platform.Models.card.CreditCardModel;
 import com.grupo5.payment_platform.Models.card.CreditInvoiceModel;
 import com.grupo5.payment_platform.Obsolete.TransactionRequestDTO;
 import com.grupo5.payment_platform.Services.BoletoServices.BoletoService;
+import com.grupo5.payment_platform.Services.TransactionKafkaService;
 import com.grupo5.payment_platform.Services.TransactionsServices.PixBackupService;
 import com.grupo5.payment_platform.Services.TransactionsServices.TransactionService;
 import jakarta.servlet.http.HttpServletResponse;
@@ -42,11 +46,13 @@ public class TransactionController {
     private final TransactionService transactionService;
     private final BoletoService boletoService;
     private final PixBackupService pixBackupService;
+    private final TransactionKafkaService transactionKafkaService;
 
-    public TransactionController(TransactionService transactionService, BoletoService boletoService, PixBackupService pixBackupService) {
+    public TransactionController(TransactionService transactionService, BoletoService boletoService, PixBackupService pixBackupService, TransactionKafkaService transactionKafkaService) {
         this.transactionService = transactionService;
         this.boletoService = boletoService;
         this.pixBackupService = pixBackupService;
+        this.transactionKafkaService = transactionKafkaService;
     }
 
     //Endpoint para metodo de transferencia interna p2p
@@ -102,6 +108,10 @@ public class TransactionController {
         TransactionModel transacao = transactionService.pagarViaPixCopyPaste(request);
 
         PixSenderResponseDTO response = new PixSenderResponseDTO(transacao.getId(), transacao.getStatus().toString(), transacao.getAmount());
+        ValueTransactionDTO notify = new ValueTransactionDTO(transacao.getUser().getEmail(),transacao.getAmount(),transacao.getDate(),EmailSubject.PAYMENT_RECEIVED);
+        transactionKafkaService.sendTransactionNotification(notify);
+        TransactionNotificationDTO notify2 = new TransactionNotificationDTO(request.senderEmail(), request.senderEmail(), EmailSubject.PAYMENT_SUCESS);
+        transactionKafkaService.sendPaymentSuccessNotification(notify2);
 
         return ResponseEntity.ok(response);
     }

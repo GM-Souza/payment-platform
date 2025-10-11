@@ -50,7 +50,7 @@ public class KafkaProducerConfig {
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
         props.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, JsonDeserializer.class);
         // quando o produtor não envia headers de tipo
-        props.put(JsonDeserializer.VALUE_DEFAULT_TYPE, "com.grupo5.payment_platform.Infra.Kafka.TransactionNotificationDTO");
+        props.put(JsonDeserializer.VALUE_DEFAULT_TYPE, "java.lang.Object");
         props.put(JsonDeserializer.TRUSTED_PACKAGES, "com.grupo5.payment_platform.Infra.Kafka");
         props.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false);
 

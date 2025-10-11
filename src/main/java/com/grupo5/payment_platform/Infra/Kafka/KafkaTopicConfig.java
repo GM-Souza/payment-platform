@@ -28,4 +28,14 @@ public class KafkaTopicConfig {
         return new NewTopic("payment_order_processed", 2, (short) 1);
     }
 
+    @Bean
+    public NewTopic topicWelcomeEmail() {
+        return new NewTopic("welcome_email", 1, (short) 1);
+    }
+
+    @Bean
+    public NewTopic topicPaymentSucess(){
+        return new NewTopic("payment_success", 1, (short) 1);
+    }
+
 }

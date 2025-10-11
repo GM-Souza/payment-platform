@@ -359,6 +359,7 @@ public class TransactionService {
 
             creditInvoiceRepository.save(invoice);
             card.getInvoices().add(invoice);
+            //aqui ou no return
         }
 
         return card;
@@ -495,6 +496,8 @@ public class TransactionService {
         receiver.setBalance(receiver.getBalance().add(amount));
         userRepository.save(receiver); // Assuma save
 
+        //TODO kafka email - para o receiver
+
         return boletoTx;
     }
 
@@ -590,6 +593,8 @@ public class TransactionService {
         UserModel receiver = pixTx.getReceiver();
         receiver.setBalance(receiver.getBalance().add(amount));
         userRepository.save(receiver); // Assuma save
+
+        //TODO kafka email - para o receiver
 
         return pixTx;
     }
@@ -722,6 +727,8 @@ public class TransactionService {
         tx.setStatus(TransactionStatus.APPROVED);
         transactionRepository.save(tx);
 
+        //TODO kafka email para usuario quando pagar fatura
+
         return invoice;
     }
 
@@ -756,7 +763,4 @@ public class TransactionService {
         return creditInvoiceRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Fatura não encontrada"));
     }
-
-
-
 }

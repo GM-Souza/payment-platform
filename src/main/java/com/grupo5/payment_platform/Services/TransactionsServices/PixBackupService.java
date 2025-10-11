@@ -83,12 +83,13 @@ public class PixBackupService {
         pixPaymentDetail.setQrCodeBase64(dataUrl);
         pixPaymentDetail.setQrCodeCopyPaste(copyPaste);
         pixPaymentDetailRepository.save(pixPaymentDetail);
+        //email kafka
 
         return pixPaymentDetail;
 
     }
 
-
+    //pagamento de backup mas provavelmente nao sera usado
     @Transactional
     public PixModel pagarViaPixCopyPaste(PixSenderRequestDTO dto){
 
