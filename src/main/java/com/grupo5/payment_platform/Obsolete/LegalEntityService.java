@@ -1,4 +1,4 @@
-package com.grupo5.payment_platform.Services.UsersServices;
+package com.grupo5.payment_platform.Obsolete;
 
 import com.grupo5.payment_platform.DTOs.AuthDTOs.LegalEntityRequestDTO;
 import com.grupo5.payment_platform.DTOs.AuthDTOs.LegalEntityResponseDTO;
