@@ -72,9 +72,11 @@ public class TransactionService {
 
     public TransactionModel depositFunds(DepositRequestDTO dto) {
         UserModel user = userService.findByEmail(dto.email()).orElseThrow();
+
         if (user.getEmail() == null) {
             throw new UserNotFoundException("Usuário não encontrado");
         }
+
         if (dto.amount() == null || dto.amount().compareTo(BigDecimal.ZERO) <= 0) {
             throw new InvalidTransactionAmountException("O valor do depósito deve ser maior que zero.");
         }
@@ -101,9 +103,11 @@ public class TransactionService {
         if (user.getEmail() == null) {
             throw new UserNotFoundException("Usuário não encontrado");
         }
+
         if (dto.amount() == null || dto.amount().compareTo(BigDecimal.ZERO) <= 0) {
             throw new InvalidTransactionAmountException("O valor do saque deve ser maior que zero.");
         }
+
         if (user.getBalance().compareTo(dto.amount()) < 0) {
             throw new InsufficientBalanceException("Saldo insuficiente para saque.");
         }
@@ -124,16 +128,16 @@ public class TransactionService {
         return withdrawTransaction;
     }
 
-    // CRIAR TRANSAÇÃO SIMPLES
+    // CRIAR TRANSAÇÃO PIX SIMPLES
     public TransactionModel createTransaction(TransactionRequestDTO dto){
 
-        UserModel sender = userService.findById(dto.senderId());
+        UserModel sender = userService.findByEmail(dto.senderEmail()).orElseThrow();
       if (sender.getEmail() == null) {
           throw new UserNotFoundException("Sender não encontrado");
       }
 
-      UserModel receiver = userService.findById(dto.receiverId());
-      if (receiver == null) {
+      UserModel receiver = userService.findByEmail(dto.receiverEmail()).orElseThrow();
+      if (receiver.getEmail() == null) {
           throw new UserNotFoundException("Receiver não encontrado");
       }
 
@@ -148,16 +152,20 @@ public class TransactionService {
         if (sender.getId().equals(receiver.getId())) {
             throw new InvalidTransactionAmountException("O remetente e o destinatário não podem ser o mesmo usuário.");
         }
+
         sender.setBalance(sender.getBalance().subtract(dto.amount()));
         receiver.setBalance(receiver.getBalance().add(dto.amount()));
 
-        TransactionModel newTransaction = new TransactionModel();
-        // newTransaction.setSender(sender);
-       // newTransaction.setReceiver(receiver);
+        PixModel newTransaction = new PixModel();
+
+        newTransaction.setUser(sender);
+        newTransaction.setReceiver(receiver);
         newTransaction.setAmount(dto.amount());
-       //newTransaction.setCreateDate(LocalDateTime.now());
-       // newTransaction.setFinalDate(null);
+        newTransaction.setDate(LocalDateTime.now());
+        newTransaction.setFinalDate(LocalDateTime.now());
+        newTransaction.setStatus(TransactionStatus.APPROVED);
         newTransaction.setPaymentType("PIX");
+
         transactionRepository.save(newTransaction);
 
         return newTransaction;
@@ -278,6 +286,7 @@ public class TransactionService {
     public BoletoModel pagarViaCodigoBoleto(PagBoletoRequestDTO dto) {
         BoletoPaymentDetail boletoPaymentDetail = boletoRepository.findByBoletoCode(dto.codeBoleto())
                 .orElseThrow(() -> new CodeBoletoNotFoundException("Cobrança via boleto não encontrada."));
+
         BoletoModel boletoTx = boletoPaymentDetail.getBoletoTransaction();
         if (!boletoTx.isPending()) {
             throw new InvalidTransactionAmountException("Essa cobrança já foi paga ou cancelada.");
@@ -300,7 +309,6 @@ public class TransactionService {
 
         return boletoTx;
     }
-
 
     @Transactional
     public CreditCardModel createCreditCard(CreditCardRequestDTO dto) {
@@ -398,9 +406,6 @@ public class TransactionService {
         return creditCardRepository.findByUserOwnerId(user)
                 .orElseThrow(() -> new RuntimeException("Credit card not found for this user!"));
     }
-
-
-
 
     @Transactional
     public BoletoModel pagarBoletoViaCreditCard(PagBoletoRequestDTO dto, int parcelas) {
@@ -759,7 +764,4 @@ public class TransactionService {
         return creditInvoiceRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Fatura não encontrada"));
     }
-
-
-
 }

@@ -414,7 +414,7 @@ public class BoletoService {
         boletoTx.setDueDate(LocalDate.parse(vencimentoStr, DateTimeFormatter.ofPattern("dd/MM/yyyy")));
         boletoTx.setUser(userModelReceiver);
 
-// Criar e associar o detalhe
+         // Criar e associar o detalhe
         BoletoPaymentDetail detail = new BoletoPaymentDetail();
         detail.setBoletoCode(linhaDigitavel);
         detail.setDocumentCode(numeroDocumento);
@@ -422,10 +422,10 @@ public class BoletoService {
         detail.setBoletoTransaction(boletoTx); // Configura a relação
         boletoTx.setBoletoPaymentDetail(detail); // Configura a relação bidirecional
 
-// Salvar a transação (o cascade persiste o BoletoPaymentDetail)
+        // Salvar a transação (o cascade persiste o BoletoPaymentDetail)
         transactionRepository.save(boletoTx);
 
-// Retornar o PDF
+        // Retornar o PDF
         return pdfStream.toByteArray();
     }
 

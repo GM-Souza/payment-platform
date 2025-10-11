@@ -50,13 +50,6 @@ public class TransactionController {
         this.pixBackupService = pixBackupService;
     }
 
-    //Endpoint para metodo de transferencia interna p2p
-    @PostMapping
-    public ResponseEntity<TransactionModel> createTransaction(@RequestBody TransactionRequestDTO dto) {
-        TransactionModel newTransaction = transactionService.createTransaction(dto);
-        return new ResponseEntity<>(newTransaction, HttpStatus.OK);
-    }
-
     @PostMapping("/deposito")
     public ResponseEntity<TransactionModel> createDeposit(@RequestBody DepositRequestDTO dto) {
         TransactionModel newTransaction = transactionService.depositFunds(dto);
@@ -69,8 +62,14 @@ public class TransactionController {
         return new ResponseEntity<>(newTransaction, HttpStatus.OK);
     }
 
-    //Endpoint para gerar cobrança pix
     @PostMapping("/pix")
+    public ResponseEntity<TransactionModel> createTransaction(@RequestBody TransactionRequestDTO dto) {
+        TransactionModel newTransaction = transactionService.createTransaction(dto);
+        return new ResponseEntity<>(newTransaction, HttpStatus.OK);
+    }
+
+    //Endpoint para gerar cobrança pix
+    @PostMapping("/criar-cobranca-pix")
     public ResponseEntity<PixReceiverResponseDTO> createPixTransaction(@RequestBody PixReceiverRequestDTO dto) throws Exception {
         PixPaymentDetail pixDetail = transactionService.gerarCobrancaPix(dto);
 
@@ -80,11 +79,11 @@ public class TransactionController {
                 pixDetail.getPixTransaction().getStatus().toString(), // PENDING
                 pixDetail.getQrCodeBase64(), pixDetail.getQrCodeCopyPaste()
         );
-
         return ResponseEntity.ok(response);
     }
+
     //Endpoint para gerar cobrança pix(Backup)
-    @PostMapping("/pix/backup")
+    @PostMapping("/criar-cobranca-pix/backup")
     public ResponseEntity<PixReceiverResponseDTO> createPixTransactionBackup(@RequestBody PixReceiverRequestDTO dto) throws Exception {
         PixPaymentDetail pixDetail = pixBackupService.criarCobrancaPix(dto);
         //Montando o response DTO
@@ -93,7 +92,6 @@ public class TransactionController {
                 pixDetail.getPixTransaction().getStatus().toString(), // PENDING
                 pixDetail.getQrCodeBase64(), pixDetail.getQrCodeCopyPaste()
         );
-
         return ResponseEntity.ok(response);
     }
 
@@ -141,26 +139,24 @@ public class TransactionController {
         CreditCardResponseDTO response = new CreditCardResponseDTO(
                 card.getCreditNumber(),
                 card.getCvv(),
-                card.getExpiration().toString(),  // LocalDate -> String
-                card.getCreditLimit().toString()        // BigDecimal -> String
+                card.getExpiration().toString(),
+                card.getCreditLimit().toString()
         );
 
         return ResponseEntity.ok(response);
     }
-
 
     @GetMapping("/get-card")
     public ResponseEntity<CreditCardResponseDTO> getCreditCard(@RequestBody CreditCardRequestDTO request) {
         // Busca o cartão usando o service
         CreditCardModel card = transactionService.getCreditCardByEmail(request);
 
-
         // Constrói o DTO de resposta
         CreditCardResponseDTO response = new CreditCardResponseDTO(
                 card.getCreditNumber(),
                 card.getCvv(),
-                card.getExpiration().toString(),  // LocalDate -> String
-                card.getCreditLimit().toString()        // BigDecimal -> String
+                card.getExpiration().toString(),
+                card.getCreditLimit().toString()
         );
         return ResponseEntity.ok(response);
     }
@@ -172,7 +168,7 @@ public class TransactionController {
         return ResponseEntity.ok(response);
     }
 
-    //método utilizando o service do mercado Pago
+    //metodo utilizando o service do mercado Pago
     @PostMapping("/pagar-pix-cartao-mercado-pago")
     public ResponseEntity<PixSenderResponseDTO> pagarPixViaCartaoMercadoPago(
             @RequestBody PixSenderRequestDTO dto,
@@ -191,7 +187,7 @@ public class TransactionController {
         return ResponseEntity.ok(response);
     }
 
-    //método utilizando o Pixbackup
+    //metodo utilizando o Pixbackup
     @PostMapping("/pagar-pix-cartao")
     public ResponseEntity<PixSenderResponseDTO> pagarPixViaCartao(
             @RequestBody PixSenderRequestDTO dto,
@@ -204,26 +200,19 @@ public class TransactionController {
         return ResponseEntity.ok(response);
     }
 
+    @PostMapping("/pagar-fatura-cartao")
+    public ResponseEntity<PagCreditCardResponseDTO> pagarUltimaFatura(@RequestBody PagCreditCardRequestDTO request) {
+        CreditInvoiceModel invoice = transactionService.pagarProximaFatura(request);
 
-
-        @PostMapping("/pagar-fatura-cartao")
-        public ResponseEntity<PagCreditCardResponseDTO> pagarUltimaFatura(@RequestBody PagCreditCardRequestDTO request) {
-            CreditInvoiceModel invoice = transactionService.pagarProximaFatura(request);
-
-            // Constrói o DTO de resposta
-            PagCreditCardResponseDTO response = new PagCreditCardResponseDTO(
-                    invoice.getId().toString(),
-                    invoice.getCreditCardId().getId().toString(),
-                    invoice.getClosingDate().toString(),
-                    invoice.getTotalAmount().toString(),
-                    String.valueOf(invoice.isPaid())
+        // Constrói o DTO de resposta
+        PagCreditCardResponseDTO response = new PagCreditCardResponseDTO(
+                invoice.getId().toString(),
+                invoice.getCreditCardId().getId().toString(),
+                invoice.getClosingDate().toString(),
+                invoice.getTotalAmount().toString(),
+                String.valueOf(invoice.isPaid())
             );
 
-            return ResponseEntity.ok(response);
-        }
-
-
-
-
-
+        return ResponseEntity.ok(response);
+    }
 }

@@ -54,6 +54,7 @@ public class SecurityConfig {
                 .addFilterBefore(securityFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
+
     //Bean para criptografia de senha
     @Bean
     public PasswordEncoder passwordEncoder() {

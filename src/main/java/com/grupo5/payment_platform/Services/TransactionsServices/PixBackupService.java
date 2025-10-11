@@ -102,55 +102,8 @@ public class PixBackupService {
         return pixPaymentDetail;
 
     }
-
-
-    @Transactional
-    public PixModel pagarViaPixCopyPaste(PixSenderRequestDTO dto){
-
-        // Busca o detalhe da cobrança pelo código Pix
-        PixPaymentDetail pixDetail = pixPaymentDetailRepository.findByQrCodeCopyPaste(dto.qrCodeCopyPaste());
-
-        // Verifica se o detalhe da cobrança existe
-        if (pixDetail == null) {
-            throw new PixQrCodeNotFoundException("Cobrança Pix não encontrada.");
-        }
-
-        PixModel transaction = pixDetail.getPixTransaction();
-
-        // Verifica se a transação está pendente
-        if (!TransactionStatus.PENDING.equals(transaction.getStatus())) {
-            throw new InvalidTransactionAmountException("Essa cobrança já foi paga ou cancelada.");
-        }
-
-        UserModel sender = userService.findByEmail(dto.senderEmail()).orElseThrow();
-
-        // Verifica se o pagador existe
-        if (sender.getEmail() == null) {
-            throw new UserNotFoundException("Pagador não encontrado.");
-        }
-
-        UserModel receiver = transaction.getReceiver();
-        BigDecimal amount = transaction.getAmount();
-
-        if (sender.getBalance().compareTo(amount) < 0) {
-            throw new InsufficientBalanceException("Saldo insuficiente.");
-        }
-
-        // Realiza o pagamento
-        sender.setBalance(sender.getBalance().subtract(amount));
-        receiver.setBalance(receiver.getBalance().add(amount));
-
-        // Atualiza a transação
-        transaction.setUser(sender);
-        transaction.setStatus(TransactionStatus.APPROVED);// aprovado quando pago
-        transaction.setFinalDate(LocalDateTime.now());
-
-        transactionRepository.save(transaction);
-
-        return transaction;
-    }
-
-    @Transactional
+    
+   @Transactional
     public PixModel pagarPixViaCreditCard(PixSenderRequestDTO dto, int parcelas) {
         // Busca o detalhe da cobrança Pix pelo código copy-paste
         PixPaymentDetail pixDetail = pixPaymentDetailRepository.findByQrCodeCopyPaste(dto.qrCodeCopyPaste());

@@ -42,7 +42,7 @@ public class InvoiceController {
         return "extrato-faturas"; // Nome do template Thymeleaf
     }
 
-    // No método GET de detalhes, certifique-se de passar "invoice":
+    // No metodo GET de detalhes, certifique-se de passar "invoice":
     @GetMapping("/invoice/{id}/details")
     public String getInvoiceDetails(@PathVariable UUID id, Model model) {
         CreditInvoiceModel invoice = transactionService.getInvoiceById(id);  // Busca a fatura completa
