@@ -63,20 +63,20 @@ public class PixBackupService {
 
     public PixPaymentDetail criarCobrancaPix(PixReceiverRequestDTO dto) throws Exception{
 
-       Optional<UserModel> receiver = userService.findByEmail(dto.receiverEmail());
-         if(receiver.isEmpty()){
-              throw new UserNotFoundException("Usuário não encontrado");
-         }
-            if(dto.amount().compareTo(BigDecimal.ZERO) <= 0){
-                throw new InvalidTransactionAmountException("Valor inválido para a transação");
-            }
-            PixModel pixTransaction = new PixModel();
-            pixTransaction.setAmount(dto.amount());
-            pixTransaction.setReceiver(receiver.get());
-            pixTransaction.setPaymentType("PIX");
-            pixTransaction.setUser(null);
-            pixTransaction.setStatus(TransactionStatus.PENDING);
-            pixTransaction.setDate(LocalDateTime.now());
+        Optional<UserModel> receiver = userService.findByEmail(dto.receiverEmail());
+        if(receiver.isEmpty()){
+            throw new UserNotFoundException("Usuario nao encontrado");
+        }
+        if(dto.amount().compareTo(BigDecimal.ZERO) <= 0){
+            throw new InvalidTransactionAmountException("Valor invalido para a transacao");
+        }
+        PixModel pixTransaction = new PixModel();
+        pixTransaction.setAmount(dto.amount());
+        pixTransaction.setReceiver(receiver.get());
+        pixTransaction.setPaymentType("PIX");
+        pixTransaction.setUser(null);
+        pixTransaction.setStatus(TransactionStatus.PENDING);
+        pixTransaction.setDate(LocalDateTime.now());
         transactionRepository.save(pixTransaction);
 
         String copyPaste = UUID.randomUUID() + dto.amount().toPlainString();
@@ -101,41 +101,77 @@ public class PixBackupService {
         //email kafka
 
         return pixPaymentDetail;
-
     }
 
-    //pagamento de backup mas provavelmente nao sera usado
+    // pagamento via copy-paste (debita saldo do pagador)
     @Transactional
     public PixModel pagarViaPixCopyPaste(PixSenderRequestDTO dto){
 
-        // Busca o detalhe da cobrança pelo código Pix
-    
-   @Transactional
+        PixPaymentDetail pixDetail = pixPaymentDetailRepository.findByQrCodeCopyPaste(dto.qrCodeCopyPaste());
+
+        if (pixDetail == null) {
+            throw new PixQrCodeNotFoundException("Cobranca Pix nao encontrada.");
+        }
+
+        PixModel transaction = pixDetail.getPixTransaction();
+
+        if (!TransactionStatus.PENDING.equals(transaction.getStatus())) {
+            throw new InvalidTransactionAmountException("Essa cobranca ja foi paga ou cancelada.");
+        }
+
+        UserModel sender = userService.findByEmail(dto.senderEmail())
+                .orElseThrow(() -> new UserNotFoundException("Pagador nao encontrado."));
+
+        UserModel receiver = transaction.getReceiver();
+        BigDecimal amount = transaction.getAmount();
+
+        if (sender.getBalance().compareTo(amount) < 0) {
+            throw new InsufficientBalanceException("Saldo insuficiente para realizar a transacao.");
+        }
+
+        // debita pagador
+        sender.setBalance(sender.getBalance().subtract(amount));
+        userRepository.save(sender);
+
+        // credita recebedor
+        receiver.setBalance(receiver.getBalance().add(amount));
+        userRepository.save(receiver);
+
+        // atualiza transa\u00E7\u00E3o
+        transaction.setStatus(TransactionStatus.APPROVED);
+        transaction.setPaymentType("PIX");
+        transaction.setFinalDate(LocalDateTime.now());
+        transactionRepository.save(transaction);
+
+        return transaction;
+    }
+
+    @Transactional
     public PixModel pagarPixViaCreditCard(PixSenderRequestDTO dto, int parcelas) {
         // Busca o detalhe da cobrança Pix pelo código copy-paste
         PixPaymentDetail pixDetail = pixPaymentDetailRepository.findByQrCodeCopyPaste(dto.qrCodeCopyPaste());
 
         if (pixDetail == null) {
-            throw new PixQrCodeNotFoundException("Cobrança Pix não encontrada.");
+            throw new PixQrCodeNotFoundException("Cobranca Pix nao encontrada.");
         }
 
         PixModel transaction = pixDetail.getPixTransaction();
 
         // Verifica se a transação está pendente
         if (!TransactionStatus.PENDING.equals(transaction.getStatus())) {
-            throw new InvalidTransactionAmountException("Essa cobrança já foi paga ou cancelada.");
+            throw new InvalidTransactionAmountException("Essa cobranca ja foi paga ou cancelada.");
         }
 
         // Busca o pagador
         UserModel sender = userService.findByEmail(dto.senderEmail())
-                .orElseThrow(() -> new UserNotFoundException("Pagador não encontrado."));
+                .orElseThrow(() -> new UserNotFoundException("Pagador nao encontrado."));
 
         UserModel receiver = transaction.getReceiver();
         BigDecimal amount = transaction.getAmount();
 
         // Busca o cartão do pagador
         CreditCardModel card = creditCardRepository.findByUserOwnerId(sender)
-                .orElseThrow(() -> new RuntimeException("Cartão de crédito não encontrado para o usuário."));
+                .orElseThrow(() -> new RuntimeException("Cartao de credito nao encontrado para o usuario."));
 
         BigDecimal limiteMensal = card.getCreditLimit();
 
@@ -151,7 +187,7 @@ public class PixBackupService {
         BigDecimal limiteDisponivel = limiteMensal.subtract(totalMesAtual);
 
         if (amount.compareTo(limiteDisponivel) > 0) {
-            throw new RuntimeException("Limite de crédito insuficiente para realizar esta transação.");
+            throw new RuntimeException("Limite de credito insuficiente para realizar esta transacao.");
         }
 
         // Busca faturas futuras
@@ -159,11 +195,11 @@ public class PixBackupService {
                 .findByCreditCardIdAndClosingDateAfterOrderByClosingDateAsc(card, now);
 
         if (futureInvoices.size() < parcelas) {
-            throw new RuntimeException("Não há faturas futuras suficientes para distribuir as parcelas.");
+            throw new RuntimeException("Nao ha faturas futuras suficientes para distribuir as parcelas.");
         }
 
         // Valor por parcela
-        BigDecimal valorParcela = amount.divide(BigDecimal.valueOf(parcelas), 2, RoundingMode.HALF_UP.HALF_UP);
+        BigDecimal valorParcela = amount.divide(BigDecimal.valueOf(parcelas), 2, RoundingMode.HALF_UP);
 
         // Cria as parcelas
         for (int i = 0; i < parcelas; i++) {

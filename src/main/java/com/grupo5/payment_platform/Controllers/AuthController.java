@@ -86,7 +86,7 @@ public class AuthController {
             legalEntity.setPassword(passwordEncoder.encode(legalEntityRequestDTO.password()));
             legalEntity.setBalance(legalEntityRequestDTO.balance());
             TransactionNotificationDTO notify = new TransactionNotificationDTO(legalEntity.getLegalName(),legalEntity.getEmail(), EmailSubject.WELCOME);
-            transactionKafkaService.sendTransactionNotification(notify);
+            transactionKafkaService.sendWelcomeNotification(notify);
             legalEntityRepository.save(legalEntity);
 
             String token = this.tokenService.generateToken(legalEntity);

@@ -109,7 +109,7 @@ public class TransactionController {
         PixSenderResponseDTO response = new PixSenderResponseDTO(transacao.getId(), transacao.getStatus().toString(), transacao.getAmount());
         ValueTransactionDTO notify = new ValueTransactionDTO(transacao.getUser().getEmail(),transacao.getAmount(),transacao.getDate(),EmailSubject.PAYMENT_RECEIVED);
         transactionKafkaService.sendTransactionNotification(notify);
-        TransactionNotificationDTO notify2 = new TransactionNotificationDTO(request.senderEmail(), request.senderEmail(), EmailSubject.PAYMENT_SUCESS);
+        ValueTransactionDTO notify2 = new ValueTransactionDTO(request.senderEmail(),transacao.getAmount(),transacao.getDate(), EmailSubject.PAYMENT_SUCESS);
         transactionKafkaService.sendPaymentSuccessNotification(notify2);
 
         return ResponseEntity.ok(response);
