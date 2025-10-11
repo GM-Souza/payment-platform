@@ -107,9 +107,25 @@ public class TransactionController {
         TransactionModel transacao = transactionService.pagarViaPixCopyPaste(request);
 
         PixSenderResponseDTO response = new PixSenderResponseDTO(transacao.getId(), transacao.getStatus().toString(), transacao.getAmount());
-        ValueTransactionDTO notify = new ValueTransactionDTO(transacao.getUser().getEmail(),transacao.getAmount(),transacao.getDate(),EmailSubject.PAYMENT_RECEIVED);
-        transactionKafkaService.sendTransactionNotification(notify);
-        ValueTransactionDTO notify2 = new ValueTransactionDTO(request.senderEmail(),transacao.getAmount(),transacao.getDate(), EmailSubject.PAYMENT_SUCESS);
+
+        // usa o receiver pois em criarCobrancaPix o campo user pode estar null
+        String receiverEmail = transacao.getUser() != null ? transacao.getUser().getEmail() : null;
+        if (receiverEmail != null) {
+            ValueTransactionDTO notify = new ValueTransactionDTO(
+                    receiverEmail,
+                    transacao.getAmount(),
+                    transacao.getDate() != null ? transacao.getDate() : transacao.getDate(),
+                    EmailSubject.PAYMENT_RECEIVED
+            );
+            transactionKafkaService.sendTransactionNotification(notify);
+        }
+
+        ValueTransactionDTO notify2 = new ValueTransactionDTO(
+                request.senderEmail(),
+                transacao.getAmount(),
+                transacao.getDate() != null ? transacao.getDate() : transacao.getDate(),
+                EmailSubject.PAYMENT_SUCESS
+        );
         transactionKafkaService.sendPaymentSuccessNotification(notify2);
 
         return ResponseEntity.ok(response);
