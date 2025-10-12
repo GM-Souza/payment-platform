@@ -103,7 +103,7 @@ public class PixBackupService {
         return pixPaymentDetail;
     }
 
-    // pagamento via copy-paste (debita saldo do pagador)
+    /*// pagamento via copy-paste (debita saldo do pagador)
     @Transactional
     public PixModel pagarViaPixCopyPaste(PixSenderRequestDTO dto){
 
@@ -144,7 +144,7 @@ public class PixBackupService {
         transactionRepository.save(transaction);
 
         return transaction;
-    }
+    }*/
 
     @Transactional
     public PixModel pagarPixViaCreditCard(PixSenderRequestDTO dto, int parcelas) {

@@ -12,7 +12,6 @@ import com.grupo5.payment_platform.Enums.TransactionStatus;
 import com.grupo5.payment_platform.Exceptions.*;
 
 import com.grupo5.payment_platform.Infra.Kafka.TransactionNotificationDTO;
-import com.grupo5.payment_platform.Infra.Kafka.ValueTransactionDTO;
 import com.grupo5.payment_platform.Models.Payments.BoletoModel;
 import com.grupo5.payment_platform.Models.Payments.BoletoPaymentDetail;
 import com.grupo5.payment_platform.Models.Payments.PixModel;
@@ -164,9 +163,6 @@ public class TransactionService {
         newTransaction.setPaymentType("PIX");
 
         transactionRepository.save(newTransaction);
-        TransactionNotificationDTO notify = new TransactionNotificationDTO(newTransaction.getUser().getEmail(),newTransaction.getUser().getEmail(),EmailSubject.PAYMENT_RECEIVED);
-        transactionKafkaService.sendTransactionNotification(notify);
-
 
         return newTransaction;
     }
@@ -266,6 +262,13 @@ public class TransactionService {
         transaction.setFinalDate(LocalDateTime.now());
 
         transactionRepository.save(transaction);
+        TransactionNotificationDTO notifySender =
+                new TransactionNotificationDTO(sender.getEmail(), sender.getEmail(), EmailSubject.PAYMENT_SUCESS);
+        transactionKafkaService.sendTransactionNotificationForBoth(notifySender, null);
+
+        TransactionNotificationDTO notifyReceiver =
+                new TransactionNotificationDTO(receiver.getEmail(), receiver.getEmail(), EmailSubject.PAYMENT_RECEIVED);
+        transactionKafkaService.sendTransactionNotificationForBoth(null, notifyReceiver);
 
         return transaction;
     }

@@ -1,6 +1,5 @@
 package com.grupo5.payment_platform.Controllers;
 
-import ch.qos.logback.core.model.Model;
 import com.grupo5.payment_platform.DTOs.Cards.CreditCardRequestDTO;
 import com.grupo5.payment_platform.DTOs.Cards.CreditCardResponseDTO;
 import com.grupo5.payment_platform.DTOs.Cards.PagCreditCardRequestDTO;
@@ -15,7 +14,6 @@ import com.grupo5.payment_platform.DTOs.PixDTOs.PixSenderRequestDTO;
 import com.grupo5.payment_platform.DTOs.PixDTOs.PixSenderResponseDTO;
 import com.grupo5.payment_platform.Enums.EmailSubject;
 import com.grupo5.payment_platform.Infra.Kafka.TransactionNotificationDTO;
-import com.grupo5.payment_platform.Infra.Kafka.ValueTransactionDTO;
 import com.grupo5.payment_platform.Models.Payments.BoletoModel;
 import com.grupo5.payment_platform.Models.Payments.PixModel;
 import com.grupo5.payment_platform.Models.Payments.TransactionModel;
@@ -33,12 +31,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/transactions")
@@ -101,30 +93,18 @@ public class TransactionController {
         return ResponseEntity.ok(response);
     }
 
-    //Endpoint para pagar via pix
     @PostMapping("/pagar-copy-paste")
     public ResponseEntity<PixSenderResponseDTO> pagarViaPixCopyPaste(@RequestBody PixSenderRequestDTO request) {
-        TransactionModel transacao = transactionService.pagarViaPixCopyPaste(request);
+        PixModel transacao = transactionService.pagarViaPixCopyPaste(request);
 
-        PixSenderResponseDTO response = new PixSenderResponseDTO(transacao.getId(), transacao.getStatus().toString(), transacao.getAmount());
-
-        // usa o receiver pois em criarCobrancaPix o campo user pode estar null
-        String receiverEmail = transacao.getUser() != null ? transacao.getUser().getEmail() : null;
-        if (receiverEmail != null) {
-            TransactionNotificationDTO notify = new TransactionNotificationDTO(receiverEmail, receiverEmail,EmailSubject.PAYMENT_RECEIVED
-            );
-            transactionKafkaService.sendTransactionNotification(notify);
-        }
-
-        TransactionNotificationDTO notify2 = new TransactionNotificationDTO(
-                request.senderEmail(),
-                request.senderEmail(),
-                EmailSubject.PAYMENT_SUCESS
+        PixSenderResponseDTO response = new PixSenderResponseDTO(
+                transacao.getId(),
+                transacao.getStatus().toString(),
+                transacao.getAmount()
         );
-        transactionKafkaService.sendTransactionNotification(notify2);
-
         return ResponseEntity.ok(response);
     }
+
 
     @PostMapping("/generateBoleto")
     public ResponseEntity<byte[]> generateBoleto(@RequestBody BoletoRequestDTO dto, HttpServletResponse response) throws Exception {
