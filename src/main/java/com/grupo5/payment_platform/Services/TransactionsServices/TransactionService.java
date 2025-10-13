@@ -305,6 +305,9 @@ public class TransactionService {
 
         sender.setBalance(sender.getBalance().subtract(amount));
         receiver.setBalance(receiver.getBalance().add(amount));
+        //alteração pra talvez modificar o front
+        userRepository.save(sender);
+        userRepository.save(receiver);
 
         boletoTx.setStatus(TransactionStatus.APPROVED);
         boletoTx.setFinalDate(LocalDateTime.now());
