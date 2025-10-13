@@ -29,10 +29,7 @@ import java.text.NumberFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.HashMap;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Random;
+import java.util.*;
 
 @Service
 public class BoletoService {
@@ -455,5 +452,10 @@ public class BoletoService {
         ByteArrayOutputStream pngStream = new ByteArrayOutputStream();
         MatrixToImageWriter.writeToStream(bitMatrix, "PNG", pngStream);
         return pngStream.toByteArray();
+    }
+
+    public Optional<BoletoPaymentDetail> findInfoByCode(String barcode){
+       Optional<BoletoPaymentDetail> detail = boletoRepository.findByBoletoCode(barcode);
+       return detail;
     }
 }

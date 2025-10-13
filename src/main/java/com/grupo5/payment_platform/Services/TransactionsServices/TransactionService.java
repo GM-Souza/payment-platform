@@ -273,6 +273,7 @@ public class TransactionService {
         return transaction;
     }
 
+
     // Este metodo é chamado automaticamente pelo Spring, não manualmente
     @Scheduled(fixedRate = 6000000)
     public void cancelarPixPendentes() {
