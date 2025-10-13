@@ -14,10 +14,7 @@ import com.grupo5.payment_platform.DTOs.PixDTOs.PixSenderRequestDTO;
 import com.grupo5.payment_platform.DTOs.PixDTOs.PixSenderResponseDTO;
 import com.grupo5.payment_platform.Enums.EmailSubject;
 import com.grupo5.payment_platform.Infra.Kafka.TransactionNotificationDTO;
-import com.grupo5.payment_platform.Models.Payments.BoletoModel;
-import com.grupo5.payment_platform.Models.Payments.PixModel;
-import com.grupo5.payment_platform.Models.Payments.TransactionModel;
-import com.grupo5.payment_platform.Models.Payments.PixPaymentDetail;
+import com.grupo5.payment_platform.Models.Payments.*;
 import com.grupo5.payment_platform.Models.card.CreditCardModel;
 import com.grupo5.payment_platform.Models.card.CreditInvoiceModel;
 import com.grupo5.payment_platform.Obsolete.TransactionRequestDTO;
@@ -31,6 +28,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/transactions")
@@ -125,6 +124,8 @@ public class TransactionController {
     @PostMapping("/pagarBoleto")
     public ResponseEntity<PagBoletoResponseDTO> pagarViaPixCopyPaste(@RequestBody PagBoletoRequestDTO request) {
         TransactionModel transacao = transactionService.pagarViaCodigoBoleto(request);
+        //metodo para retornar os valores
+        Optional<BoletoPaymentDetail> model = boletoService.findInfoByCode(request.codeBoleto());
 
         PagBoletoResponseDTO response = new PagBoletoResponseDTO(request.codeBoleto());
 
