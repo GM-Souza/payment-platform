@@ -99,7 +99,8 @@ public class TransactionController {
         PixSenderResponseDTO response = new PixSenderResponseDTO(
                 transacao.getId(),
                 transacao.getStatus().toString(),
-                transacao.getAmount()
+                transacao.getAmount(),
+                transacao.getSender().getEmail()
         );
         return ResponseEntity.ok(response);
     }
@@ -183,7 +184,8 @@ public class TransactionController {
         PixSenderResponseDTO response = new PixSenderResponseDTO(
                 transacao.getId(),
                 transacao.getStatus().toString(),
-                transacao.getAmount()
+                transacao.getAmount(),
+                transacao.getSender().getEmail()
         );
 
         return ResponseEntity.ok(response);
@@ -197,7 +199,9 @@ public class TransactionController {
 
         PixModel transacao = pixBackupService.pagarPixViaCreditCard(dto, parcelas);
 
-        PixSenderResponseDTO response = new PixSenderResponseDTO(transacao.getId(), transacao.getStatus().toString(), transacao.getAmount());
+        PixSenderResponseDTO response = new PixSenderResponseDTO(transacao.getId(), transacao.getStatus().toString(),
+                transacao.getAmount(),
+                transacao.getSender().getEmail());
 
         return ResponseEntity.ok(response);
     }

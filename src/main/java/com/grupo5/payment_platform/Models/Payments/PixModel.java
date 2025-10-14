@@ -22,8 +22,8 @@ public class PixModel extends TransactionModel {
     private LocalDateTime finalDate;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "receiver_id")
-    private UserModel receiver;
+    @JoinColumn(name = "sender_id")
+    private UserModel sender;
 
     @OneToOne(mappedBy = "pixTransaction", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private PixPaymentDetail pixPaymentDetail;

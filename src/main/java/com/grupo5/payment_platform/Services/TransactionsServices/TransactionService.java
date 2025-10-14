@@ -154,8 +154,8 @@ public class TransactionService {
 
         PixModel newTransaction = new PixModel();
 
-        newTransaction.setUser(sender);
-        newTransaction.setReceiver(receiver);
+        newTransaction.setUser(receiver);
+        newTransaction.setSender(sender);
         newTransaction.setAmount(dto.amount());
         newTransaction.setDate(LocalDateTime.now());
         newTransaction.setFinalDate(LocalDateTime.now());
@@ -169,87 +169,84 @@ public class TransactionService {
 
     // GERAR COBRANÇA PIX
     @Transactional
-    public PixPaymentDetail gerarCobrancaPix(PixReceiverRequestDTO detail) throws MPException, MPApiException {
+    public PixPaymentDetail gerarCobrancaPix(PixReceiverRequestDTO request) throws MPException, MPApiException {
 
-        // Verifica se o receiver existe
-        UserModel receiver = userService.findByEmail(detail.receiverEmail()).orElseThrow(() ->
-                new UserNotFoundException("Usuário não encontrado."));
+        //Verifica se o receiver (quem vai receber o pagamento) existe
+        UserModel receiver = userService.findByEmail(request.receiverEmail())
+                .orElseThrow(() -> new UserNotFoundException("Usuário destinatário não encontrado."));
 
-        BigDecimal amount = detail.amount();
+        BigDecimal amount = request.amount();
 
-        // Valida o valor
+        //  Valida o valor da cobrança
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new InvalidTransactionAmountException("O valor deve ser maior que zero.");
         }
 
-        // Cria cobrança no MercadoPago
+        // Cria a cobrança PIX via MercadoPago
         PaymentCreateRequest createRequest = PaymentCreateRequest.builder()
                 .transactionAmount(amount)
                 .description("Cobrança Pix para " + receiver.getEmail())
                 .paymentMethodId("pix")
-                .payer(PaymentPayerRequest.builder().email(receiver.getEmail()).build())
+                .payer(PaymentPayerRequest.builder()
+                        .email(receiver.getEmail())
+                        .build())
                 .build();
 
-        // Inicializa o cliente do MercadoPago
         PaymentClient client = new PaymentClient();
-
-        // Cria o pagamento
         Payment paymentResponse = client.create(createRequest);
 
-        // Cria transação PENDING (sem pagador ainda)
-        PixModel transaction = new PixModel();
+        // ️ Cria uma transação PIX pendente (aguardando pagamento)
+        PixModel pixTransaction = new PixModel();
+        pixTransaction.setUser(receiver);
+        pixTransaction.setAmount(amount);
+        pixTransaction.setDate(LocalDateTime.now());
+        pixTransaction.setPaymentType("PIX");
+        pixTransaction.setStatus(TransactionStatus.PENDING);
 
-        transaction.setReceiver(receiver);
-        transaction.setUser(null);
-        transaction.setAmount(amount);
-        transaction.setDate(LocalDateTime.now());
-        transaction.setPaymentType("PIX");
-        transaction.setStatus(TransactionStatus.PENDING);
-
+        // Cria os detalhes do pagamento PIX
         PixPaymentDetail pixDetail = new PixPaymentDetail();
-
+        pixDetail.setMercadoPagoPaymentId(paymentResponse.getId());
         pixDetail.setQrCodeBase64(paymentResponse.getPointOfInteraction().getTransactionData().getQrCodeBase64());
         pixDetail.setQrCodeCopyPaste(paymentResponse.getPointOfInteraction().getTransactionData().getQrCode());
-        pixDetail.setMercadoPagoPaymentId(paymentResponse.getId());
 
-        transaction.attachDetail(pixDetail); // vincula ambos os lados
+        // Faz o vínculo bidirecional corretamente
+        pixTransaction.attachDetail(pixDetail);
 
-        transactionRepository.save(transaction); // cascade salva o detail
+        // Salva a transação (Cascade salva o detail)
+        transactionRepository.save(pixTransaction);
 
         return pixDetail;
     }
 
     // PAGAR COBRANÇA PIX
     @Transactional
-    public PixModel pagarViaPixCopyPaste(PixSenderRequestDTO dto){
+    public PixModel pagarViaPixCopyPaste(PixSenderRequestDTO dto) {
 
-        // Busca o detalhe da cobrança pelo código Pix
+        // Busca a cobrança pelo código Pix
         PixPaymentDetail pixDetail = pixPaymentDetailRepository.findByQrCodeCopyPaste(dto.qrCodeCopyPaste());
-
-        // Verifica se o detalhe da cobrança existe
         if (pixDetail == null) {
             throw new PixQrCodeNotFoundException("Cobrança Pix não encontrada.");
         }
 
-        PixModel transaction = pixDetail.getPixTransaction();
+        PixModel pixTransaction = pixDetail.getPixTransaction();
 
-        // Verifica se a transação está pendente
-        if (!TransactionStatus.PENDING.equals(transaction.getStatus())) {
+        // Verifica status
+        if (!TransactionStatus.PENDING.equals(pixTransaction.getStatus())) {
             throw new InvalidTransactionAmountException("Essa cobrança já foi paga ou cancelada.");
         }
 
-        UserModel sender = userService.findByEmail(dto.senderEmail()).orElseThrow();
+        // Identifica o pagador (sender)
+        UserModel sender = userService.findByEmail(dto.senderEmail())
+                .orElseThrow(() -> new UserNotFoundException("Pagador não encontrado."));
 
-        // Verifica se o pagador existe
-        if (sender.getEmail() == null) {
-            throw new UserNotFoundException("Pagador não encontrado.");
-        }
+        // Identifica o recebedor (receiver)
+        UserModel receiver = pixTransaction.getUser(); // user é o dono original da cobrança
 
-        UserModel receiver = transaction.getReceiver();
-        BigDecimal amount = transaction.getAmount();
+        BigDecimal amount = pixTransaction.getAmount();
 
+        // Verifica saldo
         if (sender.getBalance().compareTo(amount) < 0) {
-            throw new InsufficientBalanceException("Saldo insuficiente.");
+            throw new InsufficientBalanceException("Saldo insuficiente para realizar o pagamento.");
         }
 
         // Realiza o pagamento
@@ -257,20 +254,21 @@ public class TransactionService {
         receiver.setBalance(receiver.getBalance().add(amount));
 
         // Atualiza a transação
-        transaction.setUser(sender);
-        transaction.setStatus(TransactionStatus.APPROVED);// aprovado quando pago
-        transaction.setFinalDate(LocalDateTime.now());
+        pixTransaction.setSender(sender);
+        pixTransaction.setStatus(TransactionStatus.APPROVED);
+        pixTransaction.setFinalDate(LocalDateTime.now());
 
-        transactionRepository.save(transaction);
+        // Cria DTOs para cada destinatário
         TransactionNotificationDTO notifySender =
                 new TransactionNotificationDTO(sender.getEmail(), sender.getEmail(), EmailSubject.PAYMENT_SUCESS);
-        transactionKafkaService.sendTransactionNotificationForBoth(notifySender, null);
 
         TransactionNotificationDTO notifyReceiver =
-                new TransactionNotificationDTO(receiver.getEmail(), receiver.getEmail(), EmailSubject.PAYMENT_RECEIVED);
-        transactionKafkaService.sendTransactionNotificationForBoth(null, notifyReceiver);
+                new TransactionNotificationDTO(sender.getEmail(), receiver.getEmail(), EmailSubject.PAYMENT_RECEIVED);
 
-        return transaction;
+        // Envia ambas as notificações de uma só vez
+        transactionKafkaService.sendTransactionNotificationForBoth(notifySender, notifyReceiver);
+
+        return pixTransaction;
     }
 
 
@@ -297,24 +295,24 @@ public class TransactionService {
             throw new InvalidTransactionAmountException("Essa cobrança já foi paga ou cancelada.");
         }
 
+        // 🧩 Ajuste: sender = quem paga, receiver = quem criou a cobrança
         UserModel sender = boletoTx.getSender();
-        UserModel receiver = boletoTx.getReceiver();
+        UserModel receiver = boletoTx.getUser();
         BigDecimal amount = boletoTx.getAmount();
 
         if (amount == null || sender.getBalance() == null || sender.getBalance().compareTo(amount) < 0) {
             throw new InsufficientBalanceException("Saldo insuficiente.");
         }
 
+        // Debita o pagador e credita o recebedor
         sender.setBalance(sender.getBalance().subtract(amount));
         receiver.setBalance(receiver.getBalance().add(amount));
 
-        //alteração pra talvez modificar o front
         userRepository.save(sender);
         userRepository.save(receiver);
 
         boletoTx.setStatus(TransactionStatus.APPROVED);
         boletoTx.setFinalDate(LocalDateTime.now());
-
         transactionRepository.save(boletoTx);
 
         return boletoTx;
@@ -420,7 +418,6 @@ public class TransactionService {
 
     @Transactional
     public BoletoModel pagarBoletoViaCreditCard(PagBoletoRequestDTO dto, int parcelas) {
-        // Busca o boleto pelo código
         BoletoPaymentDetail boletoPaymentDetail = boletoRepository.findByBoletoCode(dto.codeBoleto())
                 .orElseThrow(() -> new CodeBoletoNotFoundException("Cobrança via boleto não encontrada."));
 
@@ -433,14 +430,16 @@ public class TransactionService {
         BigDecimal amount = boletoTx.getAmount();
         BigDecimal valorParcela = amount.divide(BigDecimal.valueOf(parcelas), 2, RoundingMode.HALF_UP);
 
-        // Busca o cartão do usuário que vai pagar o boleto
-        CreditCardModel card = creditCardRepository.findByUserOwnerId(boletoTx.getSender())
+        // Pagador e recebedor
+        UserModel sender = boletoTx.getSender();
+        UserModel receiver = boletoTx.getUser();
+
+        // Busca o cartão do pagador
+        CreditCardModel card = creditCardRepository.findByUserOwnerId(sender)
                 .orElseThrow(() -> new RuntimeException("Cartão de crédito não encontrado para o usuário."));
 
-        // Limite mensal fixo
         BigDecimal limiteMensal = card.getCreditLimit();
 
-        // Soma o total já faturado no mês corrente (faturas abertas)
         LocalDate now = LocalDate.now();
         BigDecimal totalMesAtual = card.getInvoices().stream()
                 .filter(inv -> !inv.isPaid())
@@ -451,12 +450,10 @@ public class TransactionService {
 
         BigDecimal limiteDisponivel = limiteMensal.subtract(totalMesAtual);
 
-        // Verifica se o valor cabe no limite disponível
         if (amount.compareTo(limiteDisponivel) > 0) {
             throw new RuntimeException("Limite de crédito insuficiente para realizar esta transação.");
         }
 
-        // Busca faturas futuras já existentes
         List<CreditInvoiceModel> futureInvoices = creditInvoiceRepository
                 .findByCreditCardIdAndClosingDateAfterOrderByClosingDateAsc(card, now);
 
@@ -464,53 +461,43 @@ public class TransactionService {
             throw new RuntimeException("Não há faturas futuras suficientes para distribuir as parcelas.");
         }
 
-        // Distribui o valor das parcelas e cria ParcelModel
         for (int i = 0; i < parcelas; i++) {
             CreditInvoiceModel invoice = futureInvoices.get(i);
 
-            // Cria a parcela
             ParcelModel parcel = new ParcelModel();
             parcel.setInvoice(invoice);
-            parcel.setOriginalTransaction(boletoTx); // Linka à transação original
+            parcel.setOriginalTransaction(boletoTx);
             parcel.setParcelNumber(i + 1);
             parcel.setTotalParcels(parcelas);
             parcel.setAmount(valorParcela);
-            parcel.setDescription("Parcela " + (i + 1) + " de " + parcelas + " do Boleto #" + dto.codeBoleto());
+            parcel.setDescription("Parcela " + (i + 1) + " de " + parcelas + " do boleto #" + dto.codeBoleto());
 
-            // Adiciona à fatura (bidirecional)
             invoice.getParcels().add(parcel);
-            parcelRepository.save(parcel);// Salva a parcela
+            parcelRepository.save(parcel);
 
-            // Soma no total (mas recalculará depois)
             invoice.setTotalAmount(invoice.getTotalAmount().add(valorParcela));
             creditInvoiceRepository.save(invoice);
         }
 
-        // Recalcula o total final para cada fatura afetada
         futureInvoices.forEach(invoice -> {
             invoice.recalculateTotalAmount();
             creditInvoiceRepository.save(invoice);
         });
 
-        // Atualiza status e data de finalização do boleto
         boletoTx.setStatus(TransactionStatus.APPROVED);
         boletoTx.setPaymentType("BOLETO_CREDIT_CARD");
         boletoTx.setFinalDate(LocalDateTime.now());
         transactionRepository.save(boletoTx);
 
-        // Atualiza saldo do recebedor
-        UserModel receiver = boletoTx.getReceiver();
+        // Credita o recebedor (quem criou a cobrança)
         receiver.setBalance(receiver.getBalance().add(amount));
-        userRepository.save(receiver); // Assuma save
-
-        //TODO kafka email - para o receiver
+        userRepository.save(receiver);
 
         return boletoTx;
     }
 
     @Transactional
     public PixModel pagarPixViaCreditCard(PixSenderRequestDTO dto, int parcelas) {
-        // Busca o detalhe da cobrança PIX pelo código copy-paste
         PixPaymentDetail pixPaymentDetail = pixPaymentDetailRepository.findByQrCodeCopyPaste(dto.qrCodeCopyPaste());
 
         if (pixPaymentDetail == null) {
@@ -526,19 +513,17 @@ public class TransactionService {
         BigDecimal amount = pixTx.getAmount();
         BigDecimal valorParcela = amount.divide(BigDecimal.valueOf(parcelas), 2, RoundingMode.HALF_UP);
 
-        // Busca o usuário pagador
-        UserModel sender = userService.findByEmail(dto.senderEmail()).orElseThrow(()->
-                new UserNotFoundException("User not found"));
+        // 🧩 Corrige papéis
+        UserModel sender = userService.findByEmail(dto.senderEmail())
+                .orElseThrow(() -> new UserNotFoundException("Pagador não encontrado."));
+        UserModel receiver = pixTx.getUser(); // Recebedor é quem criou o Pix
 
-        // Busca o cartão do usuário
         CreditCardModel card = creditCardRepository.findByUserOwnerId(sender)
                 .orElseThrow(() -> new RuntimeException("Cartão de crédito não encontrado para o usuário."));
 
-        // Limite mensal fixo
         BigDecimal limiteMensal = card.getCreditLimit();
-
-        // Soma o total já faturado no mês corrente (faturas não pagas do mês atual)
         LocalDate now = LocalDate.now();
+
         BigDecimal totalMesAtual = card.getInvoices().stream()
                 .filter(inv -> !inv.isPaid())
                 .filter(inv -> inv.getClosingDate().getMonth().equals(now.getMonth()) &&
@@ -548,12 +533,10 @@ public class TransactionService {
 
         BigDecimal limiteDisponivel = limiteMensal.subtract(totalMesAtual);
 
-        // Verifica se o valor total da compra cabe no limite disponível
         if (amount.compareTo(limiteDisponivel) > 0) {
             throw new RuntimeException("Limite de crédito insuficiente para realizar esta transação.");
         }
 
-        // Busca faturas futuras já existentes
         List<CreditInvoiceModel> futureInvoices = creditInvoiceRepository
                 .findByCreditCardIdAndClosingDateAfterOrderByClosingDateAsc(card, now);
 
@@ -561,47 +544,38 @@ public class TransactionService {
             throw new RuntimeException("Não há faturas futuras suficientes para distribuir as parcelas.");
         }
 
-        // Distribui o valor das parcelas e cria ParcelModel
         for (int i = 0; i < parcelas; i++) {
             CreditInvoiceModel invoice = futureInvoices.get(i);
 
-            // Cria a parcela
             ParcelModel parcel = new ParcelModel();
             parcel.setInvoice(invoice);
-            parcel.setOriginalTransaction(pixTx); // Linka à transação original
+            parcel.setOriginalTransaction(pixTx);
             parcel.setParcelNumber(i + 1);
             parcel.setTotalParcels(parcelas);
             parcel.setAmount(valorParcela);
-            parcel.setDescription("Parcela " + (i + 1) + " de " + parcelas + " do PIX #" + dto.qrCodeCopyPaste().substring(0, 10) + "..."); // Trunca o código pra description
+            parcel.setDescription("Parcela " + (i + 1) + " de " + parcelas + " do PIX #" + dto.qrCodeCopyPaste().substring(0, 10) + "...");
 
-            // Adiciona à fatura (bidirecional)
             invoice.getParcels().add(parcel);
-            parcelRepository.save(parcel); // Salva a parcela
+            parcelRepository.save(parcel);
 
-            // Soma no total (mas recalculará depois)
             invoice.setTotalAmount(invoice.getTotalAmount().add(valorParcela));
             creditInvoiceRepository.save(invoice);
         }
 
-        // Recalcula o total final para cada fatura afetada
         futureInvoices.forEach(invoice -> {
             invoice.recalculateTotalAmount();
             creditInvoiceRepository.save(invoice);
         });
 
-        // Atualiza status da transação PIX
+        pixTx.setSender(sender);
         pixTx.setStatus(TransactionStatus.APPROVED);
         pixTx.setPaymentType("PIX_CREDIT_CARD");
         pixTx.setFinalDate(LocalDateTime.now());
-        pixTx.setUser(sender);
         transactionRepository.save(pixTx);
 
-        // Atualiza saldo do recebedor
-        UserModel receiver = pixTx.getReceiver();
+        // Credita o recebedor corretamente
         receiver.setBalance(receiver.getBalance().add(amount));
-        userRepository.save(receiver); // Assuma save
-
-        //TODO kafka email - para o receiver
+        userRepository.save(receiver);
 
         return pixTx;
     }
@@ -745,8 +719,6 @@ public class TransactionService {
         tx.setStatus(TransactionStatus.APPROVED);
         transactionRepository.save(tx);
 
-        //TODO kafka email para usuario quando pagar fatura
-
         return invoice;
     }
 
@@ -774,7 +746,7 @@ public class TransactionService {
     public List<ParcelModel> getInvoiceParcelsById(UUID invoiceId) {
         CreditInvoiceModel invoice = creditInvoiceRepository.findById(invoiceId)
                 .orElseThrow(() -> new RuntimeException("Fatura não encontrada"));
-        return parcelRepository.findByInvoiceOrderByParcelNumberAsc(invoice); // Assuma método no repo: List<ParcelModel> findByInvoiceOrderByParcelNumberAsc(CreditInvoiceModel invoice);
+        return parcelRepository.findByInvoiceOrderByParcelNumberAsc(invoice); // Assuma metodo no repo: List<ParcelModel> findByInvoiceOrderByParcelNumberAsc(CreditInvoiceModel invoice);
     }
 
     public CreditInvoiceModel getInvoiceById(UUID id) {
