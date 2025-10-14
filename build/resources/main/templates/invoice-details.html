@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Detalhes da Fatura - Agipay</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(to bottom, #0a1f44, #004aad);
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #001f5b;
+            padding: 20px 40px;
+            border-bottom: 3px solid #00b8f0;
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 1.8em;
+            color: #fff;
+            letter-spacing: 1px;
+        }
+
+        .brand {
+            font-size: 1.8em;
+            font-weight: 800;
+            color: #fff;
+            letter-spacing: 2px;
+            text-transform: none;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        .content {
+            flex: 1;
+            padding: 40px;
+        }
+
+        .client-info {
+            background-color: #ffffff10;
+            border: 1px solid #00b8f0;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 25px;
+            box-shadow: 0 0 8px rgba(0, 184, 240, 0.3);
+        }
+
+        .client-info strong {
+            color: #00b8f0;
+        }
+
+        .parcels-section {
+            background-color: #ffffff08;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-left: 4px solid #00b8f0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+
+        .parcels-header {
+            font-weight: 600;
+            color: #00b8f0;
+            margin-bottom: 8px;
+            font-size: 1.1em;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 8px;
+            color: #fff;
+        }
+
+        th, td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        th {
+            color: #00b8f0;
+            font-size: 0.95em;
+        }
+
+        .no-parcels {
+            text-align: center;
+            color: #ccc;
+            font-style: italic;
+            background-color: #ffffff10;
+            padding: 15px;
+            border-radius: 10px;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            background: #00b8f0;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 4px;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .pay-button {
+            margin-top: 15px;
+            text-align: right;
+        }
+
+        .pay-button button {
+            background: linear-gradient(90deg, #4CAF50, #00b8f0);
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 0.95em;
+        }
+
+        footer {
+            position: relative;
+            overflow: hidden;
+            height: 60px;
+            background-color: #001f5b;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        footer .footer-text {
+            color: #fff;
+            font-size: 0.85em;
+            text-shadow: 0 0 6px #000;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Detalhes da Fatura</h1>
+    <div class="brand">agipay</div>
+</header>
+
+<div class="content">
+    <div class="client-info">
+        <p><strong>Cliente:</strong> <span th:text="${email}"></span></p>
+        <p><strong>Data de Geração:</strong> <span th:text="${dataGeracao}"></span></p>
+    </div>
+
+    <a th:href="@{/credit-card/extrato-faturas(email=${email})}" class="back-link">← Voltar ao Extrato</a>
+
+    <div th:if="${!parcels.isEmpty()}" class="parcels-section">
+        <div class="parcels-header">Parcelas da Fatura</div>
+        <table>
+            <tr>
+                <th>Parcela</th>
+                <th>Descrição</th>
+                <th>Valor (R$)</th>
+                <th>Transação Original</th>
+            </tr>
+            <tr th:each="parcel : ${parcels}">
+                <td th:text="${parcel.parcelNumber} + ' de ' + ${parcel.totalParcels}"></td>
+                <td th:text="${parcel.description}"></td>
+                <td th:text="${#numbers.formatDecimal(parcel.amount, 1, 2)}"></td>
+                <td th:text="${parcel.originalTransaction.id}"></td>
+            </tr>
+        </table>
+        <div class="pay-button">
+            <form th:action="@{/credit-card/invoice/{id}/pay(id=${invoiceId})}" method="post">
+                <input type="hidden" name="email" th:value="${email}" />
+                <button type="submit">Pagar Esta Fatura (R$ <span th:text="${#numbers.formatDecimal(invoice.totalAmount, 1, 2)}"></span>)</button>
+            </form>
+        </div>
+    </div>
+
+    <div th:if="${parcels.isEmpty()}" class="no-parcels">
+        Nenhuma parcela nesta fatura.
+    </div>
+</div>
+
+<footer>
+    <div class="footer-text">© 2025 Agipay — Todos os direitos reservados.</div>
+</footer>
+
+</body>
+</html>

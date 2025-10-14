@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Extrato de Faturas - Agipay</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(to bottom, #0a1f44, #004aad);
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #001f5b;
+            padding: 20px 40px;
+            border-bottom: 3px solid #00b8f0;
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 1.8em;
+            color: #fff;
+            letter-spacing: 1px;
+        }
+
+        .brand {
+            font-size: 1.8em;
+            font-weight: 800;
+            color: #fff;
+            letter-spacing: 2px;
+            text-transform: none;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        .content {
+            flex: 1;
+            padding: 40px;
+        }
+
+        .client-info {
+            background-color: #ffffff10;
+            border: 1px solid #00b8f0;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 25px;
+            box-shadow: 0 0 8px rgba(0, 184, 240, 0.3);
+        }
+
+        .client-info strong {
+            color: #00b8f0;
+        }
+
+        .invoice-section {
+            background-color: #ffffff08;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-left: 4px solid #00b8f0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+
+        .invoice-header {
+            font-weight: 600;
+            color: #00b8f0;
+            margin-bottom: 8px;
+            font-size: 1.1em;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 8px;
+            color: #fff;
+        }
+
+        th, td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        th {
+            color: #00b8f0;
+            font-size: 0.95em;
+        }
+
+        .total {
+            font-weight: bold;
+            font-size: 1.2em;
+            text-align: right;
+            color: #fff;
+            margin: 25px auto 0;
+            padding: 8px 16px;
+            background: linear-gradient(90deg, #004aad, #00b8f0);
+            border-radius: 8px;
+            box-shadow: 0 0 8px rgba(0,184,240,0.4);
+            width: fit-content;
+        }
+
+        .no-invoices {
+            text-align: center;
+            color: #ccc;
+            font-style: italic;
+            background-color: #ffffff10;
+            padding: 15px;
+            border-radius: 10px;
+        }
+
+        .details-link {
+            margin-top: 10px;
+            text-align: right;
+        }
+
+        .details-link a {
+            background: #00b8f0;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 4px;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        footer {
+            position: relative;
+            overflow: hidden;
+            height: 60px;
+            background-color: #001f5b;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        footer .footer-text {
+            color: #fff;
+            font-size: 0.85em;
+            text-shadow: 0 0 6px #000;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Extrato de Faturas</h1>
+    <div class="brand">agipay</div>
+</header>
+
+<div class="content">
+    <div class="client-info">
+        <p><strong>Cliente:</strong> <span th:text="${email}"></span></p>
+        <p><strong>Data de Geração:</strong> <span th:text="${dataGeracao}"></span></p>
+    </div>
+
+    <div th:if="${openInvoices.isEmpty()}">
+        <p class="no-invoices">Nenhuma fatura em aberto no momento.</p>
+    </div>
+
+    <div th:each="invoice : ${openInvoices}" class="invoice-section">
+        <div class="invoice-header">
+            Fechamento: <span th:text="${#temporals.format(invoice.closingDate, 'dd/MM/yyyy')}"></span>
+        </div>
+        <table>
+            <tr>
+                <th>Data de Vencimento</th>
+                <th>Valor Total (R$)</th>
+                <th>Status</th>
+            </tr>
+            <tr>
+                <td th:text="${#temporals.format(invoice.dueDate, 'dd/MM/yyyy')}"></td>
+                <td th:text="${#numbers.formatDecimal(invoice.totalAmount, 1, 2)}"></td>
+                <td><span style="color: #ffdf00; font-weight: bold;">Em Aberto</span></td>
+            </tr>
+        </table>
+        <div class="details-link">
+            <a th:href="@{/credit-card/invoice/{id}/details(id=${invoice.id})}">Ver Detalhes das Parcelas</a>
+        </div>
+    </div>
+
+    <div th:if="${!openInvoices.isEmpty()}" class="total">
+        Total em Aberto: R$ <span th:text="${#numbers.formatDecimal(totalAberto, 1, 2)}"></span>
+    </div>
+</div>
+
+<footer>
+    <div class="footer-text">© 2025 Agipay — Todos os direitos reservados.</div>
+</footer>
+
+</body>
+</html>
