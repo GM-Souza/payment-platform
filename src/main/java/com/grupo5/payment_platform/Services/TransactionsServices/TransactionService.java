@@ -753,4 +753,17 @@ public class TransactionService {
         return creditInvoiceRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Fatura não encontrada"));
     }
+
+    public TransactionModel getLast5Statement(String email) {
+        UserModel user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
+
+        List<TransactionModel> last5Transactions = transactionRepository.findTop5ByUser_IdOrderByDateDesc(user.getId());
+
+        if (last5Transactions.isEmpty()) {
+            throw new RuntimeException("Nenhuma transação encontrada para este usuário.");
+        }
+
+        return last5Transactions.get(0); // Retorna a transação mais recente
+    }
 }

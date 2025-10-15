@@ -58,6 +58,11 @@ public class TransactionController {
         TransactionModel newTransaction = transactionService.withdrawFunds(dto);
         return new ResponseEntity<>(newTransaction, HttpStatus.OK);
     }
+    @GetMapping("/statement")
+    public ResponseEntity<TransactionModel> getStatement(@RequestParam String email) {
+        TransactionModel statement = transactionService.getLast5Statement(email);
+        return ResponseEntity.ok(statement);
+    }
 
     @PostMapping("/pix")
     public ResponseEntity<TransactionModel> createTransaction(@RequestBody TransactionRequestDTO dto) {

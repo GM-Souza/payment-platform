@@ -12,4 +12,8 @@ public interface TransactionRepository extends JpaRepository<TransactionModel, U
 
     // Consulta válida usando campo existente 'date'
     List<TransactionModel> findByStatusAndDateBefore(TransactionStatus transactionStatus, LocalDateTime limite);
+
+    List<TransactionModel> findByUser_Email(String email);
+
+    List<TransactionModel> findTop5ByUser_IdOrderByDateDesc(UUID userId);
 }
