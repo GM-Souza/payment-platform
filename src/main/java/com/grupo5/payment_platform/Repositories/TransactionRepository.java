@@ -2,7 +2,9 @@ package com.grupo5.payment_platform.Repositories;
 
 import com.grupo5.payment_platform.Enums.TransactionStatus;
 import com.grupo5.payment_platform.Models.Payments.TransactionModel;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -15,5 +17,5 @@ public interface TransactionRepository extends JpaRepository<TransactionModel, U
 
     List<TransactionModel> findByUser_Email(String email);
 
-    List<TransactionModel> findTop5ByUser_IdOrderByDateDesc(UUID userId);
+    List<TransactionModel> findByUser_EmailOrderByDateDesc(String userEmail, Pageable pageable);
 }

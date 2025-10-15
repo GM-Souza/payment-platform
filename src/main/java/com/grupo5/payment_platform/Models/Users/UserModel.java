@@ -1,5 +1,6 @@
 package com.grupo5.payment_platform.Models.Users;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -16,6 +17,8 @@ import java.util.UUID;
 @Entity
 @Table(name="tb_users")
 @Inheritance(strategy = InheritanceType.JOINED)
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+
 public class UserModel {
 
     @Id

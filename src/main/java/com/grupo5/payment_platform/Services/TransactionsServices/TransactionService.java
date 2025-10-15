@@ -34,6 +34,9 @@ import com.mercadopago.client.payment.PaymentPayerRequest;
 import com.mercadopago.exceptions.MPApiException;
 import com.mercadopago.exceptions.MPException;
 import com.mercadopago.resources.payment.Payment;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -754,16 +757,8 @@ public class TransactionService {
                 .orElseThrow(() -> new RuntimeException("Fatura não encontrada"));
     }
 
-    public TransactionModel getLast5Statement(String email) {
-        UserModel user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
-
-        List<TransactionModel> last5Transactions = transactionRepository.findTop5ByUser_IdOrderByDateDesc(user.getId());
-
-        if (last5Transactions.isEmpty()) {
-            throw new RuntimeException("Nenhuma transação encontrada para este usuário.");
-        }
-
-        return last5Transactions.get(0); // Retorna a transação mais recente
+    public List<TransactionModel> getLast5Transactions(String email) {
+        Pageable top5 = PageRequest.of(0, 5, Sort.by("date").descending());
+        return transactionRepository.findByUser_EmailOrderByDateDesc(email, top5);
     }
 }
