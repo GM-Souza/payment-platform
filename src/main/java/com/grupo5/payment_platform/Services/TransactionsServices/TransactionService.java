@@ -34,6 +34,9 @@ import com.mercadopago.client.payment.PaymentPayerRequest;
 import com.mercadopago.exceptions.MPApiException;
 import com.mercadopago.exceptions.MPException;
 import com.mercadopago.resources.payment.Payment;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -752,5 +755,10 @@ public class TransactionService {
     public CreditInvoiceModel getInvoiceById(UUID id) {
         return creditInvoiceRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Fatura não encontrada"));
+    }
+
+    public List<TransactionModel> getLast5Transactions(String email) {
+        Pageable top5 = PageRequest.of(0, 5, Sort.by("date").descending());
+        return transactionRepository.findByUser_EmailOrderByDateDesc(email, top5);
     }
 }

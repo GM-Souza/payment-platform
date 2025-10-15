@@ -29,6 +29,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Optional;
 
 @RestController
@@ -57,6 +58,11 @@ public class TransactionController {
     public ResponseEntity<TransactionModel> createWithdraw(@RequestBody WithdrawRequestDTO dto) {
         TransactionModel newTransaction = transactionService.withdrawFunds(dto);
         return new ResponseEntity<>(newTransaction, HttpStatus.OK);
+    }
+    @GetMapping("/statement/{email}")
+    public ResponseEntity<List<TransactionModel>> getStatement(@PathVariable String email) {
+        List<TransactionModel> statement = transactionService.getLast5Transactions(email);
+        return ResponseEntity.ok(statement);
     }
 
     @PostMapping("/pix")
