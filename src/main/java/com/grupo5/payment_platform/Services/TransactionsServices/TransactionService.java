@@ -7,6 +7,7 @@ import com.grupo5.payment_platform.DTOs.PixDTOs.PixReceiverRequestDTO;
 import com.grupo5.payment_platform.DTOs.PixDTOs.PixSenderRequestDTO;
 import com.grupo5.payment_platform.DTOs.PixDTOs.WithdrawRequestDTO;
 import com.grupo5.payment_platform.DTOs.BoletosDTOs.PagBoletoRequestDTO;
+import com.grupo5.payment_platform.DTOs.PixPaymentPreviewDTO;
 import com.grupo5.payment_platform.Enums.EmailSubject;
 import com.grupo5.payment_platform.Enums.TransactionStatus;
 import com.grupo5.payment_platform.Exceptions.*;
@@ -221,6 +222,16 @@ public class TransactionService {
         return pixDetail;
     }
 
+    @Transactional(readOnly = true)
+    public PixPaymentPreviewDTO previewPixPaymentByQr(String qrCode) {
+        PixPaymentDetail detail = pixPaymentDetailRepository.findByQrCodeCopyPaste(qrCode);
+        if (detail == null) throw new PixQrCodeNotFoundException("Cobrança Pix não encontrada.");
+        PixModel tx = detail.getPixTransaction();
+        UserModel receiver = tx.getUser();
+        return new PixPaymentPreviewDTO(receiver.getEmail(), tx.getAmount());
+    }
+
+
     // PAGAR COBRANÇA PIX
     @Transactional
     public PixModel pagarViaPixCopyPaste(PixSenderRequestDTO dto) {
@@ -230,6 +241,7 @@ public class TransactionService {
         if (pixDetail == null) {
             throw new PixQrCodeNotFoundException("Cobrança Pix não encontrada.");
         }
+
 
         PixModel pixTransaction = pixDetail.getPixTransaction();
 

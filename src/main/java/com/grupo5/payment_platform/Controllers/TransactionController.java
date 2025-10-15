@@ -12,6 +12,7 @@ import com.grupo5.payment_platform.DTOs.PixDTOs.PixReceiverRequestDTO;
 import com.grupo5.payment_platform.DTOs.PixDTOs.PixReceiverResponseDTO;
 import com.grupo5.payment_platform.DTOs.PixDTOs.PixSenderRequestDTO;
 import com.grupo5.payment_platform.DTOs.PixDTOs.PixSenderResponseDTO;
+import com.grupo5.payment_platform.DTOs.PixPaymentPreviewDTO;
 import com.grupo5.payment_platform.Enums.EmailSubject;
 import com.grupo5.payment_platform.Infra.Kafka.TransactionNotificationDTO;
 import com.grupo5.payment_platform.Models.Payments.*;
@@ -96,6 +97,21 @@ public class TransactionController {
                 pixDetail.getQrCodeBase64(), pixDetail.getQrCodeCopyPaste()
         );
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/pix/preview")
+    public ResponseEntity<PixPaymentPreviewDTO> previewPix(@RequestParam(name = "qr") String qr) {
+        if (qr == null || qr.isBlank()) {
+            return ResponseEntity.badRequest().build();
+        }
+        try {
+            PixPaymentPreviewDTO preview = transactionService.previewPixPaymentByQr(qr);
+            return ResponseEntity.ok(preview);
+        } catch (com.grupo5.payment_platform.Exceptions.PixQrCodeNotFoundException ex) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        } catch (Exception ex) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 
     @PostMapping("/pagar-copy-paste")
