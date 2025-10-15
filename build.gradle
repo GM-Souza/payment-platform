@@ -24,6 +24,11 @@ repositories {
 	mavenCentral()
 }
 
+// Ensure the boot jar has a stable name used by Procfile
+bootJar {
+	archiveFileName = 'app.jar'
+}
+
 dependencies {
     implementation 'org.springframework.kafka:spring-kafka'
     implementation 'com.mercadopago:sdk-java:2.1.13'
