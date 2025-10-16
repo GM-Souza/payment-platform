@@ -14,13 +14,13 @@ import com.grupo5.payment_platform.DTOs.PixDTOs.PixSenderRequestDTO;
 import com.grupo5.payment_platform.DTOs.PixDTOs.PixSenderResponseDTO;
 import com.grupo5.payment_platform.DTOs.PixPaymentPreviewDTO;
 import com.grupo5.payment_platform.Enums.EmailSubject;
-import com.grupo5.payment_platform.Infra.Kafka.TransactionNotificationDTO;
+
 import com.grupo5.payment_platform.Models.Payments.*;
 import com.grupo5.payment_platform.Models.card.CreditCardModel;
 import com.grupo5.payment_platform.Models.card.CreditInvoiceModel;
 import com.grupo5.payment_platform.Obsolete.TransactionRequestDTO;
 import com.grupo5.payment_platform.Services.BoletoServices.BoletoService;
-import com.grupo5.payment_platform.Services.TransactionKafkaService;
+
 import com.grupo5.payment_platform.Services.TransactionsServices.PixBackupService;
 import com.grupo5.payment_platform.Services.TransactionsServices.TransactionService;
 import jakarta.servlet.http.HttpServletResponse;
@@ -40,13 +40,13 @@ public class TransactionController {
     private final TransactionService transactionService;
     private final BoletoService boletoService;
     private final PixBackupService pixBackupService;
-    private final TransactionKafkaService transactionKafkaService;
 
-    public TransactionController(TransactionService transactionService, BoletoService boletoService, PixBackupService pixBackupService, TransactionKafkaService transactionKafkaService) {
+
+    public TransactionController(TransactionService transactionService, BoletoService boletoService, PixBackupService pixBackupService) {
         this.transactionService = transactionService;
         this.boletoService = boletoService;
         this.pixBackupService = pixBackupService;
-        this.transactionKafkaService = transactionKafkaService;
+
     }
 
     @PostMapping("/deposito")
@@ -61,8 +61,8 @@ public class TransactionController {
         return new ResponseEntity<>(newTransaction, HttpStatus.OK);
     }
     @GetMapping("/statement/{email}")
-    public ResponseEntity<List<TransactionModel>> getStatement(@PathVariable String email) {
-        List<TransactionModel> statement = transactionService.getLast5Transactions(email);
+    public ResponseEntity<List<com.grupo5.payment_platform.DTOs.TransactionResponseDTO>> getStatement(@PathVariable String email) {
+        List<com.grupo5.payment_platform.DTOs.TransactionResponseDTO> statement = transactionService.getLast5TransactionsDTO(email);
         return ResponseEntity.ok(statement);
     }
 
@@ -98,7 +98,6 @@ public class TransactionController {
         );
         return ResponseEntity.ok(response);
     }
-
     @GetMapping("/pix/preview")
     public ResponseEntity<PixPaymentPreviewDTO> previewPix(@RequestParam(name = "qr") String qr) {
         if (qr == null || qr.isBlank()) {

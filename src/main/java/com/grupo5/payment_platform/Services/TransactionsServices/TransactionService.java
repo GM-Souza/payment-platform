@@ -12,7 +12,7 @@ import com.grupo5.payment_platform.Enums.EmailSubject;
 import com.grupo5.payment_platform.Enums.TransactionStatus;
 import com.grupo5.payment_platform.Exceptions.*;
 
-import com.grupo5.payment_platform.Infra.Kafka.TransactionNotificationDTO;
+
 import com.grupo5.payment_platform.Models.Payments.BoletoModel;
 import com.grupo5.payment_platform.Models.Payments.BoletoPaymentDetail;
 import com.grupo5.payment_platform.Models.Payments.PixModel;
@@ -25,9 +25,11 @@ import com.grupo5.payment_platform.Models.card.CreditCardModel;
 import com.grupo5.payment_platform.Models.card.CreditInvoiceModel;
 import com.grupo5.payment_platform.Models.card.ParcelModel;
 import com.grupo5.payment_platform.Obsolete.TransactionRequestDTO; // import para manter o CreateTransaction
+// import com.grupo5.payment_platform.DTOs.TransactionResponseDTO; // removed (unused)
 import com.grupo5.payment_platform.Repositories.*;
+import com.grupo5.payment_platform.DTOs.TransactionResponseDTO;
 
-import com.grupo5.payment_platform.Services.TransactionKafkaService;
+
 import com.grupo5.payment_platform.Services.UsersServices.UserService;
 import com.mercadopago.client.payment.PaymentClient;
 import com.mercadopago.client.payment.PaymentCreateRequest;
@@ -62,12 +64,12 @@ public class TransactionService {
     private final CreditCardRepository creditCardRepository;
     private final CreditInvoiceRepository creditInvoiceRepository;
     private final ParcelRepository parcelRepository;
-    private final TransactionKafkaService transactionKafkaService;
+    //private final TransactionKafkaService transactionKafkaService;
 
     public TransactionService(TransactionRepository transactionRepository, UserService userService,
                               UserRepository userRepository, PixPaymentDetailRepository pixPaymentDetailRepository,
                               BoletoRepository boletoRepository, CreditCardRepository creditCardRepository,
-                              CreditInvoiceRepository creditInvoiceRepository, ParcelRepository parcelRepository, TransactionKafkaService transactionKafkaService) {
+                              CreditInvoiceRepository creditInvoiceRepository, ParcelRepository parcelRepository) {
         this.transactionRepository = transactionRepository;
         this.userService = userService;
         this.userRepository = userRepository;
@@ -76,7 +78,7 @@ public class TransactionService {
         this.creditCardRepository = creditCardRepository;
         this.creditInvoiceRepository = creditInvoiceRepository;
         this.parcelRepository = parcelRepository;
-        this.transactionKafkaService = transactionKafkaService;
+
     }
 
     public TransactionModel depositFunds(DepositRequestDTO dto) {
@@ -274,14 +276,9 @@ public class TransactionService {
         pixTransaction.setFinalDate(LocalDateTime.now());
 
         // Cria DTOs para cada destinatário
-        TransactionNotificationDTO notifySender =
-                new TransactionNotificationDTO(sender.getEmail(), sender.getEmail(), EmailSubject.PAYMENT_SUCESS);
-
-        TransactionNotificationDTO notifyReceiver =
-                new TransactionNotificationDTO(sender.getEmail(), receiver.getEmail(), EmailSubject.PAYMENT_RECEIVED);
 
         // Envia ambas as notificações de uma só vez
-        transactionKafkaService.sendTransactionNotificationForBoth(notifySender, notifyReceiver);
+
 
         return pixTransaction;
     }
@@ -357,9 +354,9 @@ public class TransactionService {
         card.setUserOwnerId(userOwner);
 
         // Define limite baseado no tipo de usuário
-        if (userOwner instanceof IndividualModel individualReceiver) {
+        if (userOwner instanceof IndividualModel) {
             card.setCreditLimit(BigDecimal.valueOf(3_000));
-        } else if (userOwner instanceof LegalEntityModel legalReceiver) {
+        } else if (userOwner instanceof LegalEntityModel) {
             card.setCreditLimit(BigDecimal.valueOf(6_000));
         } else {
             card.setCreditLimit(BigDecimal.valueOf(1_000)); // limite padrão caso outro tipo
@@ -745,7 +742,6 @@ public class TransactionService {
         CreditCardModel card = creditCardRepository.findByUserOwnerId(user)
                 .orElseThrow(() -> new RuntimeException("Cartão de crédito não encontrado"));
 
-        LocalDate hoje = LocalDate.now();  // Data atual
 
         return card.getInvoices().stream()
                 .filter(invoice -> !invoice.isPaid())  // Não paga
@@ -769,8 +765,42 @@ public class TransactionService {
                 .orElseThrow(() -> new RuntimeException("Fatura não encontrada"));
     }
 
-    public List<TransactionModel> getLast5Transactions(String email) {
+    public List<TransactionResponseDTO> getLast5TransactionsDTO(String email) {
+        if (email == null || email.isBlank()) {
+            return Collections.emptyList();
+        }
+
         Pageable top5 = PageRequest.of(0, 5, Sort.by("date").descending());
-        return transactionRepository.findByUser_EmailOrderByDateDesc(email, top5);
+
+        List<TransactionModel> transactions = transactionRepository
+                .findByUser_EmailOrderByDateDesc(email, top5);
+
+        return transactions.stream()
+                .map(tx -> {
+                    String otherEmail;
+                    if (tx instanceof PixModel && ((PixModel) tx).getSender() != null) {
+                        otherEmail = ((PixModel) tx).getSender().getEmail();
+                    } else {
+                        otherEmail = tx.getUser().getEmail();
+                    }
+
+                    BigDecimal displayAmount = (tx instanceof PixModel && ((PixModel) tx).getSender() != null
+                            && ((PixModel) tx).getSender().getEmail().equals(email))
+                            ? tx.getAmount().negate()
+                            : tx.getAmount();
+
+                    return new TransactionResponseDTO(
+                            tx.getId(),
+                            displayAmount,
+                            tx.getDate(),
+                            tx.getPaymentType(),
+                            tx.getStatus().name(),
+                            otherEmail
+                    );
+                })
+                .collect(Collectors.toList());
     }
+
+
+
 }
