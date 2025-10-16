@@ -28,12 +28,12 @@ public class IndividualService {
     }
 
     //Metodo para listar entidade por id
-    public IndividualResponseDTO findById(UUID id){
-       IndividualModel individual = individualRepository.findById(id).orElseThrow(() ->
-               new IndividualNotFoundException("Usuário não encontrado"));
-        return  IndividualResponseDTO.fromIndividual(individual);
-    }
+    public IndividualResponseDTO findById(UUID id) {
+        IndividualModel individual = individualRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
 
+        return IndividualResponseDTO.fromIndividual(individual); // ✅ CPF incluso
+    }
     //Metodo para criar uma entidade
     public IndividualResponseDTO create(IndividualRequestDTO dto){
         IndividualModel ind = new IndividualModel();
